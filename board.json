@@ -2,12 +2,12 @@
   "comment": "Love Letters vs Shail, 2026-08-18, after Shail's TATE/EVENT. Our rack ISDUSOA.",
   "board": [
     "...C.......",
-    "...A.TATE..",
+    "..NA.TATE..",
     ".AUDIOS.V..",
-    "...I...FEAT",
-    "......Z.N..",
-    ".....POUT..",
-    "....GOO..V.",
+    "..BI...FEAT",
+    "..I...Z.N..",
+    "..L..POUT..",
+    "..E.GOO..V.",
     "...PHONETIC",
     "...RINS..R.",
     "...E.....U.",
@@ -26,7 +26,7 @@
     "...d.t.d...",
     "...T...T..."
   ],
-  "rack": "SELLNIB",
+  "rack": "FRYBEQI",
   "letter_values": {
     "A": 1,
     "B": 4,
