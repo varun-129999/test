@@ -1,8 +1,8 @@
 {
-  "comment": "Love Letters game vs Shail, 2026-08-18, after PREX (us) and WAGS (Shail). 11x11 board transcribed from screenshot. Premiums: d=DL t=TL D=DW T=TW (only uncovered squares matter). Letter values read from the tiles on screen; unseen letters use Words-With-Friends-style values.",
+  "comment": "Love Letters vs Shail, 2026-08-18, after Shail's TATE/EVENT. Our rack ISDUSOA.",
   "board": [
     "...........",
-    "...........",
+    ".....TATE..",
     "........V..",
     ".......FEAT",
     "......Z.N..",
@@ -26,7 +26,7 @@
     "...d.t.d...",
     "...T...T..."
   ],
-  "rack": "EETTIIA",
+  "rack": "ISDUSOA",
   "letter_values": {
     "A": 1,
     "B": 4,
