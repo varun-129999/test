@@ -76,22 +76,27 @@ def runs(board, size):
     return up, down
 
 
+BLANK = "*"
+
+
 def gen_direction(board, prem, size, words, rack, values, bingo, flip):
     """All legal horizontal moves on `board` (call with the transposed board
-    for vertical moves; `flip` restores real coordinates)."""
+    for vertical moves; `flip` restores real coordinates). A `*` in the rack
+    is a blank: it may stand for any letter and scores 0."""
     rack_count = Counter(rack)
+    blanks = rack_count.pop(BLANK, 0)
     up, down = runs(board, size)
     moves = []
     board_letters = Counter(ch for row in board for ch in row if ch != EMPTY)
-    usable = set(rack) | set(board_letters)
+    usable = set(rack_count) | set(board_letters)
 
     for word in words:
-        if not set(word) <= usable:
+        if blanks == 0 and not set(word) <= usable:
             continue
         L = len(word)
         need_all = Counter(word)
-        # quick impossibility check: more copies of a letter than rack+board hold
-        if any(need_all[ch] > rack_count[ch] + board_letters[ch] for ch in need_all):
+        if any(need_all[ch] > rack_count[ch] + board_letters[ch] + blanks
+               for ch in need_all):
             continue
         for r in range(size):
             row = board[r]
@@ -101,6 +106,7 @@ def gen_direction(board, prem, size, words, rack, values, bingo, flip):
                 if c + L < size and row[c + L] != EMPTY:
                     continue
                 placed, ok, connected = [], True, False
+                main_base = 0
                 for i in range(L):
                     b = row[c + i]
                     if b != EMPTY:
@@ -108,45 +114,64 @@ def gen_direction(board, prem, size, words, rack, values, bingo, flip):
                             ok = False
                             break
                         connected = True
+                        main_base += values[word[i]]
                     else:
                         placed.append((c + i, word[i]))
                 if not ok or not placed:
                     continue
                 need = Counter(ch for _, ch in placed)
-                if any(need[ch] > rack_count[ch] for ch in need):
+                short = sum(max(0, need[ch] - rack_count[ch]) for ch in need)
+                if short > blanks:
                     continue
 
-                main = 0
+                # gather premium/cross info for each newly placed tile
+                infos = []  # (col, ch, letter_mult, word_mult, cross_word, cross_base)
                 mult = 1
-                cross_total = 0
-                cross_words = []
-                for i in range(L):
-                    cc = c + i
-                    ch = word[i]
-                    if row[cc] != EMPTY:
-                        main += values[ch]
-                        continue
+                for cc, ch in placed:
                     p = prem[r][cc]
-                    lv = values[ch] * (2 if p == "d" else 3 if p == "t" else 1)
+                    lp = 2 if p == "d" else 3 if p == "t" else 1
                     wm = 2 if p == "D" else 3 if p == "T" else 1
-                    main += lv
                     mult *= wm
                     u, d = up[r][cc], down[r][cc]
+                    cw, cbase = None, 0
                     if u or d:
                         cw = u + ch + d
                         if cw not in words:
                             ok = False
                             break
                         connected = True
-                        cs = (sum(values[x] for x in u + d) + lv) * wm
-                        cross_total += cs
-                        cross_words.append((cw, cs))
+                        cbase = sum(values[x] for x in u + d)
+                    infos.append((cc, ch, lp, wm, cw, cbase))
                 if not ok or not connected:
                     continue
+
+                # assign blanks (value 0) to the least valuable duplicate slots
+                is_blank = [False] * len(infos)
+                for ch in need:
+                    extra = need[ch] - rack_count[ch]
+                    if extra <= 0:
+                        continue
+                    idxs = [j for j, inf in enumerate(infos) if inf[1] == ch]
+                    idxs.sort(key=lambda j: infos[j][2] * mult
+                              + (infos[j][2] * infos[j][3] if infos[j][4] else 0))
+                    for j in idxs[:extra]:
+                        is_blank[j] = True
+
+                main = main_base
+                cross_total = 0
+                cross_words = []
+                for j, (cc, ch, lp, wm, cw, cbase) in enumerate(infos):
+                    v = 0 if is_blank[j] else values[ch]
+                    main += v * lp
+                    if cw:
+                        cs = (cbase + v * lp) * wm
+                        cross_total += cs
+                        cross_words.append((cw, cs))
                 total = main * mult + cross_total
                 if len(placed) == len(rack):
                     total += bingo
-                tiles = [(flip(r, cc), ch) for cc, ch in placed]
+                tiles = [(flip(r, inf[0]), inf[1] + ("*" if is_blank[j] else ""))
+                         for j, inf in enumerate(infos)]
                 moves.append(
                     {
                         "word": word,
@@ -178,7 +203,7 @@ def solve(cfg, words):
 def render(cfg, move):
     grid = [row[:] for row in cfg["board"]]
     for (r, c), ch in move["tiles"]:
-        grid[r][c] = ch.lower()
+        grid[r][c] = ch[0].lower()
     lines = ["    " + " ".join(f"{i+1:>2}" for i in range(cfg["size"]))]
     for r, row in enumerate(grid):
         cells = []
