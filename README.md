@@ -25,3 +25,7 @@ Edit `board.json` to describe your game:
 Output is the top 15 moves with placement coordinates (row/col, 1-indexed
 from top-left), every word formed with its score, and a board diagram of
 the best move (new tiles in lowercase).
+
+## Also in this repo
+
+`docket/` contains Docket, a voice-first task organiser run through Claude (an MCP server and a PWA). See `docket/README.md`.

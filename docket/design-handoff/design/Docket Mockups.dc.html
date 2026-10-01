@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><meta name="design_doc_mode" content="canvas"><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600&family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet"><style>body{margin:0;background:#e9e7e2;font-family:system-ui,sans-serif}a{color:#1a1a1a}a:hover{color:#2a78d6}.dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(0,0,0,.08);scroll-margin-top:16px}.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 12px}.dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px;text-decoration:none}.dv-tname{font:600 13px/1.2 system-ui,sans-serif;color:#1a1a1a}.dv-opts{display:flex;flex-wrap:wrap;gap:56px;align-items:flex-start}.dv-opt{flex:none;display:flex;flex-direction:column;gap:12px;scroll-margin-top:16px}.dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1a1a1a;border-radius:5px;text-decoration:none}.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 12px/1.3 system-ui,sans-serif;color:rgba(0,0,0,.6)}.dv-opt:target .dv-oid{background:#2a78d6;color:#fff}.dv-next{margin:28px 0 0;font:12px/1.5 system-ui,sans-serif;color:rgba(0,0,0,.55)}</style></helmet>
+<section class="dv-turn" id="t3">
+<div class="dv-thd"><a class="dv-tid" href="#t3">3</a><span class="dv-tname">Building out <a class="dv-oid" href="#2a">2a</a>: Week on iPhone, Today on Mac</span></div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="3a">
+<div class="dv-olabel"><a class="dv-oid" href="#3a">3a</a>Week (iPhone)</div>
+<div style="border:10px solid #141414;border-radius:58px;overflow:hidden;width:390px;height:844px;background:#F4F1EA;color:#1C1B19;font-family:'Geist',sans-serif;display:flex;flex-direction:column;box-shadow:0 24px 50px rgba(0,0,0,.18)">
+<div style="display:flex;justify-content:space-between;padding:16px 30px 0;font-size:15px;font-weight:600"><span>9:41</span><span style="width:22px;height:11px;border:1.5px solid #1C1B19;border-radius:3px;display:block;position:relative"><span style="position:absolute;inset:1.5px;background:#1C1B19;border-radius:1px;display:block"></span></span></div>
+<div style="padding:20px 24px 0;display:flex;justify-content:space-between;align-items:flex-end">
+<div><div style="font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#6B675F">Week 40</div><div style="font-family:'Instrument Serif',serif;font-size:40px;line-height:1;margin-top:4px;white-space:nowrap">28 Sep – 4 Oct</div></div>
+</div>
+<div style="padding:8px 24px 0;font-size:13px;color:#6B675F">34h planned · 2 days over · Claude 38% left</div>
+<div style="padding:18px 24px 0;display:flex;flex-direction:column;gap:12px">
+<sc-for list="{{ week }}" as="d" hint-placeholder-count="7">
+<div style="display:flex;align-items:center;gap:12px;opacity:{{ d.op }}">
+<div style="width:34px;flex:none"><div style="font-size:13px;font-weight:{{ d.fw }};color:{{ d.labelColor }}">{{ d.day }}</div><div style="font-size:11px;color:#6B675F">{{ d.date }}</div></div>
+<div style="flex:1;position:relative;height:30px;background:#ECE7DC;border-radius:8px;overflow:hidden;display:flex;gap:2px">
+<div style="width:{{ d.w }}%;background:oklch(0.52 0.08 250)"></div><div style="width:{{ d.p }}%;background:oklch(0.76 0.1 75)"></div><div style="width:{{ d.h }}%;background:oklch(0.64 0.08 150)"></div>
+<div style="position:absolute;left:75%;top:0;bottom:0;border-left:1.5px dashed #D9481C"></div>
+</div>
+<div style="width:40px;flex:none;text-align:right;font-size:12px;color:{{ d.labelColor }}">{{ d.total }}</div>
+</div>
+</sc-for>
+</div>
+<div style="padding:6px 24px 0 70px;font-size:11px;color:#D9481C;display:flex;justify-content:flex-end;margin-right:44px">6h line</div>
+<div style="margin:14px 16px 0;background:#FFFDF8;border:1px solid #E2DDD2;border-radius:18px;padding:12px 16px">
+<div style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#D9481C"><span style="width:7px;height:7px;border-radius:50%;background:#D9481C;display:block"></span>Claude</div>
+<div style="font-size:14px;margin-top:6px;line-height:1.4">Tuesday ran over and today is 1h 40m over. Friday has 2h free, Saturday morning is open.</div>
+<div style="display:flex;flex-direction:column;gap:8px;margin-top:10px">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:14px"><span style="white-space:nowrap">Gym <span style="color:#6B675F">Thu → Fri 6pm</span></span><span style="display:flex;gap:6px"><span style="padding:6px 10px;border-radius:99px;border:1px solid #DED8CC;font-size:12px">Skip</span><span style="padding:6px 12px;border-radius:99px;background:#1C1B19;color:#F4F1EA;font-size:12px">Move</span></span></div>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:14px"><span style="white-space:nowrap">Lisbon trip <span style="color:#6B675F">Thu → Sat</span></span><span style="display:flex;gap:6px"><span style="padding:6px 10px;border-radius:99px;border:1px solid #DED8CC;font-size:12px">Skip</span><span style="padding:6px 12px;border-radius:99px;background:#1C1B19;color:#F4F1EA;font-size:12px">Move</span></span></div>
+</div>
+</div>
+<div style="margin:10px 16px 0;padding:12px 16px;border:1px dashed #CFC8BA;border-radius:18px;display:flex;justify-content:space-between;align-items:center;font-size:14px"><span>Weekly review · Sun 7pm</span><span style="font-size:12px;color:#6B675F">~6% of limit</span></div>
+<div style="flex:1"></div>
+<div style="display:flex;align-items:center;justify-content:space-around;padding:10px 12px 28px;border-top:1px solid #E2DDD2">
+<span style="font-size:12px;color:#6B675F">Today</span><span style="font-size:12px;font-weight:600">Week</span>
+<div style="width:72px;height:72px;border-radius:50%;background:#D9481C;color:#fff;display:grid;place-items:center;margin-top:-30px;box-shadow:0 10px 24px rgba(217,72,28,.35)"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg></div>
+<span style="font-size:12px;color:#6B675F">Inbox</span><span style="font-size:12px;color:#6B675F">Usage</span>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="3b">
+<div class="dv-olabel"><a class="dv-oid" href="#3b">3b</a>Today (Mac): sidebar, day blocks, Claude and Gmail panel</div>
+<div style="width:1280px;height:800px;border-radius:14px;overflow:hidden;background:#F4F1EA;color:#1C1B19;font-family:'Geist',sans-serif;display:flex;box-shadow:0 0 0 1px rgba(0,0,0,.12),0 30px 60px rgba(0,0,0,.18)">
+
+<div style="width:232px;flex:none;background:#ECE7DC;border-right:1px solid #E2DDD2;display:flex;flex-direction:column;padding:16px 14px 18px;box-sizing:border-box">
+<div style="display:flex;gap:7px"><span style="width:12px;height:12px;border-radius:50%;background:#FF5F57;display:block"></span><span style="width:12px;height:12px;border-radius:50%;background:#FEBC2E;display:block"></span><span style="width:12px;height:12px;border-radius:50%;background:#28C840;display:block"></span></div>
+<div style="font-family:'Instrument Serif',serif;font-size:28px;margin:22px 8px 18px">Docket</div>
+<div style="display:flex;flex-direction:column;gap:2px;font-size:14px">
+<div style="padding:8px 10px;border-radius:8px;background:#FFFDF8;font-weight:500;display:flex;justify-content:space-between"><span>Today</span><span style="color:#6B675F">9</span></div>
+<div style="padding:8px 10px;border-radius:8px;display:flex;justify-content:space-between"><span>Week</span><span style="color:#6B675F">34h</span></div>
+<div style="padding:8px 10px;border-radius:8px;display:flex;justify-content:space-between"><span>Inbox</span><span style="color:#D9481C">2</span></div>
+<div style="padding:8px 10px;border-radius:8px">Usage</div>
+</div>
+<div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#6B675F;margin:24px 10px 6px">Areas</div>
+<div style="display:flex;flex-direction:column;gap:2px;font-size:14px">
+<div style="padding:7px 10px;display:flex;align-items:center;gap:8px"><span style="width:8px;height:8px;border-radius:2px;background:oklch(0.52 0.08 250);display:block"></span>Work</div>
+<div style="padding:7px 10px;display:flex;align-items:center;gap:8px"><span style="width:8px;height:8px;border-radius:2px;background:oklch(0.76 0.1 75);display:block"></span>Personal</div>
+<div style="padding:7px 10px;display:flex;align-items:center;gap:8px"><span style="width:8px;height:8px;border-radius:2px;background:oklch(0.64 0.08 150);display:block"></span>Health</div>
+</div>
+<div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#6B675F;margin:20px 10px 6px">Projects</div>
+<div style="display:flex;flex-direction:column;gap:2px;font-size:14px">
+<div style="padding:7px 10px;display:flex;justify-content:space-between"><span>Q4 planning</span><span style="color:#6B675F">2/4</span></div>
+<div style="padding:7px 10px;display:flex;justify-content:space-between"><span>Lisbon trip</span><span style="color:#6B675F">0/3</span></div>
+</div>
+<div style="flex:1"></div>
+<div style="display:flex;align-items:center;gap:10px;padding:12px 10px;background:#FFFDF8;border:1px solid #E2DDD2;border-radius:12px">
+<div style="width:36px;height:36px;border-radius:50%;background:conic-gradient(#D9481C 0 38%,#DED8CC 0);display:grid;place-items:center;flex:none"><div style="width:28px;height:28px;border-radius:50%;background:#FFFDF8"></div></div>
+<div><div style="font-size:13px;font-weight:500">38% Claude left</div><div style="font-size:11px;color:#6B675F">Resets Mon 09:00</div></div>
+</div>
+</div>
+
+<div style="flex:1;display:flex;flex-direction:column;padding:34px 40px 24px;min-width:0;box-sizing:border-box">
+<div style="display:flex;justify-content:space-between;align-items:flex-end">
+<div><div style="font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#6B675F">Thursday</div><div style="font-family:'Instrument Serif',serif;font-size:52px;line-height:1;margin-top:4px">1 October</div></div>
+<div style="font-size:13px;color:#6B675F">9 tasks · 7h 40m planned · 6h free</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:5px;margin-top:26px">
+<div style="height:120px;border-radius:14px;background:oklch(0.52 0.08 250);color:#F7F4EE;padding:14px 18px;display:flex;flex-direction:column;justify-content:space-between;box-sizing:border-box"><div style="display:flex;justify-content:space-between;font-size:18px;font-weight:500"><span>Finish Q4 budget deck</span><span>2h 30</span></div><div style="display:flex;gap:8px;font-size:12px"><span style="padding:3px 9px;border-radius:99px;background:rgba(255,255,255,.18);text-decoration:line-through;opacity:.75">Gather numbers</span><span style="padding:3px 9px;border-radius:99px;background:rgba(255,255,255,.18);text-decoration:line-through;opacity:.75">Outline</span><span style="padding:3px 9px;border-radius:99px;background:#F7F4EE;color:#1C1B19">Revenue slides</span><span style="padding:3px 9px;border-radius:99px;background:rgba(255,255,255,.18)">Send to Priya</span></div></div>
+<div style="height:48px;border-radius:12px;background:oklch(0.52 0.08 250);color:#F7F4EE;padding:0 18px;display:flex;align-items:center;justify-content:space-between;font-size:15px;font-weight:500;box-sizing:border-box"><span>Team sync <span style="opacity:.75;font-weight:400">· 13:00</span></span><span>1h</span></div>
+<div style="border-radius:12px;background:#FFFDF8;border:1px solid #E2DDD2;padding:12px 18px;display:flex;flex-direction:column;gap:8px">
+<div style="display:flex;justify-content:space-between;font-size:15px;font-weight:500"><span>5 quick ones</span><span>1h 45</span></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 24px;font-size:13px">
+<span style="display:flex;align-items:center;gap:8px"><span style="width:14px;height:14px;border-radius:50%;border:1.5px solid #1C1B19;display:block"></span>Reply to Sam <span style="color:#9A2E0C">draft ready</span></span>
+<span style="display:flex;align-items:center;gap:8px"><span style="width:14px;height:14px;border-radius:50%;border:1.5px solid #1C1B19;display:block"></span>Review contract <span style="color:#6B675F">55m</span></span>
+<span style="display:flex;align-items:center;gap:8px"><span style="width:14px;height:14px;border-radius:50%;border:1.5px solid #1C1B19;display:block"></span>Pay Acme invoice <span style="color:#6B675F">due Fri</span></span>
+<span style="display:flex;align-items:center;gap:8px"><span style="width:14px;height:14px;border-radius:50%;border:1.5px solid #1C1B19;display:block"></span>Call mum <span style="color:#6B675F">20m</span></span>
+<span style="display:flex;align-items:center;gap:8px"><span style="width:14px;height:14px;border-radius:50%;border:1.5px solid #1C1B19;display:block"></span>Book dentist <span style="color:#6B675F">5m</span></span>
+</div>
+</div>
+<div style="height:38px;border-radius:12px;background:oklch(0.76 0.1 75);padding:0 18px;display:flex;align-items:center;justify-content:space-between;font-size:15px;font-weight:500;box-sizing:border-box"><span>Groceries</span><span>45m</span></div>
+<div style="display:flex;align-items:center;gap:10px;margin:8px 0"><div style="flex:1;border-top:1.5px dashed #D9481C"></div><span style="font-family:'Instrument Serif',serif;font-size:17px;font-style:italic;color:#D9481C">your 6 hours end here</span><div style="width:40px;border-top:1.5px dashed #D9481C"></div></div>
+<div style="height:48px;border-radius:12px;background:repeating-linear-gradient(135deg,oklch(0.76 0.1 75) 0 6px,oklch(0.88 0.05 75) 6px 12px);padding:0 18px;display:flex;align-items:center;justify-content:space-between;font-size:15px;font-weight:500;box-sizing:border-box"><span>Plan Lisbon trip</span><span>1h</span></div>
+<div style="height:38px;border-radius:12px;background:repeating-linear-gradient(135deg,oklch(0.64 0.08 150) 0 6px,oklch(0.84 0.04 150) 6px 12px);padding:0 18px;display:flex;align-items:center;justify-content:space-between;font-size:15px;font-weight:500;box-sizing:border-box"><span>Gym</span><span>40m</span></div>
+</div>
+</div>
+
+<div style="width:340px;flex:none;border-left:1px solid #E2DDD2;display:flex;flex-direction:column;padding:34px 20px 20px;gap:14px;box-sizing:border-box">
+<div style="background:#FFFDF8;border:1px solid #E2DDD2;border-radius:18px;padding:14px 16px">
+<div style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#D9481C"><span style="width:7px;height:7px;border-radius:50%;background:#D9481C;display:block"></span>Claude</div>
+<div style="font-size:14px;margin-top:6px;line-height:1.4">You're 1h 40m over today. Move these?</div>
+<div style="display:flex;flex-direction:column;gap:8px;margin-top:10px">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:14px"><span style="white-space:nowrap">Lisbon trip <span style="color:#6B675F">→ Sat</span></span><span style="display:flex;gap:6px"><span style="padding:5px 10px;border-radius:99px;border:1px solid #DED8CC;font-size:12px">Skip</span><span style="padding:5px 12px;border-radius:99px;background:#1C1B19;color:#F4F1EA;font-size:12px">Move</span></span></div>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:14px"><span style="white-space:nowrap">Gym <span style="color:#6B675F">→ Fri 6pm</span></span><span style="display:flex;gap:6px"><span style="padding:5px 10px;border-radius:99px;border:1px solid #DED8CC;font-size:12px">Skip</span><span style="padding:5px 12px;border-radius:99px;background:#1C1B19;color:#F4F1EA;font-size:12px">Move</span></span></div>
+</div>
+</div>
+<div style="background:#FFFDF8;border:1px solid #E2DDD2;border-radius:18px;padding:14px 16px">
+<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600"><span>From Gmail</span><span style="color:#6B675F;font-weight:400">checked 10m ago</span></div>
+<div style="display:flex;flex-direction:column;gap:12px;margin-top:10px">
+<div style="display:flex;gap:10px;align-items:flex-start"><div style="flex:1;font-size:13px;line-height:1.4"><div style="font-weight:500">Priya: deck feedback by Mon</div><div style="color:#6B675F">New task · Work · due Mon</div></div><span style="padding:5px 12px;border-radius:99px;background:#1C1B19;color:#F4F1EA;font-size:12px">Add</span></div>
+<div style="display:flex;gap:10px;align-items:flex-start"><div style="flex:1;font-size:13px;line-height:1.4"><div style="font-weight:500">Acme: invoice #2291</div><div style="color:#6B675F">Deadline set to Fri 2 Oct</div></div><span style="font-size:12px;color:#6B675F;padding-top:4px">Added</span></div>
+</div>
+</div>
+<div style="background:#FFFDF8;border:1px solid #E2DDD2;border-radius:18px;padding:14px 16px">
+<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600"><span>Draft · Reply to Sam</span><span style="color:#6B675F;font-weight:400">used ~2%</span></div>
+<div style="font-size:13px;line-height:1.5;color:#45423D;margin-top:8px">Hi Sam, thanks for sending the renewal. The terms look fine. One question on clause 4 before I sign…</div>
+<div style="display:flex;gap:6px;margin-top:10px"><span style="padding:5px 12px;border-radius:99px;background:#1C1B19;color:#F4F1EA;font-size:12px">Save to Gmail drafts</span><span style="padding:5px 12px;border-radius:99px;border:1px solid #DED8CC;font-size:12px">Edit</span></div>
+</div>
+<div style="flex:1"></div>
+<div style="height:60px;border-radius:30px;background:#1C1B19;color:#F4F1EA;display:flex;align-items:center;gap:12px;padding:0 6px 0 20px"><span style="flex:1;font-size:14px;color:#B7B0A3">Hold <span style="padding:2px 6px;border-radius:5px;background:#33302B;color:#F4F1EA;font-size:12px">⌥ Space</span> and speak</span><div style="width:48px;height:48px;border-radius:50%;background:#D9481C;color:#fff;display:grid;place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg></div></div>
+</div>
+
+</div>
+</div>
+
+</div>
+<p class="dv-next">Try next: "build it as the working app" · "show the Inbox screen" · "show the voice panel listening on <a class="dv-oid" href="#2a">2a</a>"</p>
+</section>
+<section class="dv-turn" id="t2">
+<div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">Mixes of <a class="dv-oid" href="#1a">1a</a> and <a class="dv-oid" href="#1c">1c</a></span></div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="2a">
+<div class="dv-olabel"><a class="dv-oid" href="#2a">2a</a>Paper look from 1a, time blocks from 1c</div>
+<div style="display:flex;gap:28px;flex-wrap:wrap">
+
+<div style="border:10px solid #141414;border-radius:58px;overflow:hidden;width:390px;height:844px;background:#F4F1EA;color:#1C1B19;font-family:'Geist',sans-serif;display:flex;flex-direction:column;box-shadow:0 24px 50px rgba(0,0,0,.18)">
+<div style="display:flex;justify-content:space-between;padding:16px 30px 0;font-size:15px;font-weight:600"><span>9:41</span><span style="width:22px;height:11px;border:1.5px solid #1C1B19;border-radius:3px;display:block;position:relative"><span style="position:absolute;inset:1.5px;background:#1C1B19;border-radius:1px;display:block"></span></span></div>
+<div style="padding:20px 24px 0;display:flex;justify-content:space-between;align-items:flex-end">
+<div><div style="font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#6B675F">Thursday</div><div style="font-family:'Instrument Serif',serif;font-size:46px;line-height:1;margin-top:4px">1 October</div></div>
+<div style="display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:44px;height:44px;border-radius:50%;background:conic-gradient(#D9481C 0 38%,#DED8CC 0);display:grid;place-items:center"><div style="width:34px;height:34px;border-radius:50%;background:#F4F1EA;display:grid;place-items:center;font-size:11px;font-weight:600">38%</div></div><div style="font-size:10px;color:#6B675F">Claude left</div></div>
+</div>
+<div style="padding:8px 24px 0;display:flex;gap:12px;font-size:12px;color:#6B675F">
+<span style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:2px;background:oklch(0.52 0.08 250);display:block"></span>Work</span>
+<span style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:2px;background:oklch(0.76 0.1 75);display:block"></span>Personal</span>
+<span style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:2px;background:oklch(0.64 0.08 150);display:block"></span>Health</span>
+<span style="margin-left:auto">7h 40m / 6h</span>
+</div>
+<div style="padding:14px 16px 0;display:flex;flex-direction:column;gap:4px">
+<div style="height:100px;border-radius:14px;background:oklch(0.52 0.08 250);color:#F7F4EE;padding:12px 14px;display:flex;flex-direction:column;justify-content:space-between;box-sizing:border-box"><div style="display:flex;justify-content:space-between;font-size:16px;font-weight:500"><span>Finish Q4 budget deck</span><span>2h 30</span></div><div style="font-size:12px;opacity:.85">High energy · step 3 of 4: revenue slides</div></div>
+<div style="height:42px;border-radius:12px;background:oklch(0.52 0.08 250);color:#F7F4EE;padding:0 14px;display:flex;align-items:center;justify-content:space-between;font-size:15px;font-weight:500;box-sizing:border-box"><span>Team sync</span><span>1h</span></div>
+<div style="border-radius:12px;background:#FFFDF8;border:1px solid #E2DDD2;padding:10px 14px;box-sizing:border-box"><div style="display:flex;justify-content:space-between;font-size:15px;font-weight:500"><span>5 quick ones</span><span>1h 45</span></div><div style="font-size:12px;color:#6B675F;line-height:1.4;margin-top:4px">Reply to Sam <span style="color:#9A2E0C">(draft ready)</span> · Pay Acme invoice · Call mum · Book dentist · Review contract</div></div>
+<div style="height:32px;border-radius:12px;background:oklch(0.76 0.1 75);padding:0 14px;display:flex;align-items:center;justify-content:space-between;font-size:15px;font-weight:500;box-sizing:border-box"><span>Groceries</span><span>45m</span></div>
+<div style="display:flex;align-items:center;gap:8px;margin:6px 0;font-size:12px;color:#D9481C"><div style="flex:1;border-top:1.5px dashed #D9481C"></div><span style="font-family:'Instrument Serif',serif;font-size:16px;font-style:italic">your 6 hours end here</span><div style="width:20px;border-top:1.5px dashed #D9481C"></div></div>
+<div style="height:42px;border-radius:12px;background:repeating-linear-gradient(135deg,oklch(0.76 0.1 75) 0 6px,oklch(0.88 0.05 75) 6px 12px);padding:0 14px;display:flex;align-items:center;justify-content:space-between;font-size:15px;font-weight:500;box-sizing:border-box"><span>Plan Lisbon trip</span><span>1h</span></div>
+<div style="height:32px;border-radius:12px;background:repeating-linear-gradient(135deg,oklch(0.64 0.08 150) 0 6px,oklch(0.84 0.04 150) 6px 12px);padding:0 14px;display:flex;align-items:center;justify-content:space-between;font-size:15px;font-weight:500;box-sizing:border-box"><span>Gym</span><span>40m</span></div>
+</div>
+<div style="margin:12px 16px 0;background:#FFFDF8;border:1px solid #E2DDD2;border-radius:18px;padding:12px 16px">
+<div style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#D9481C"><span style="width:7px;height:7px;border-radius:50%;background:#D9481C;display:block"></span>Claude</div>
+<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:14px"><span style="white-space:nowrap">Lisbon trip <span style="color:#6B675F">→ Sat</span></span><span style="display:flex;gap:6px"><span style="padding:6px 10px;border-radius:99px;border:1px solid #DED8CC;font-size:12px">Skip</span><span style="padding:6px 12px;border-radius:99px;background:#1C1B19;color:#F4F1EA;font-size:12px">Move</span></span></div>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:14px"><span style="white-space:nowrap">Gym <span style="color:#6B675F">→ Fri 6pm</span></span><span style="display:flex;gap:6px"><span style="padding:6px 10px;border-radius:99px;border:1px solid #DED8CC;font-size:12px">Skip</span><span style="padding:6px 12px;border-radius:99px;background:#1C1B19;color:#F4F1EA;font-size:12px">Move</span></span></div>
+</div>
+</div>
+<div style="flex:1"></div>
+<div style="display:flex;align-items:center;justify-content:space-around;padding:10px 12px 28px;border-top:1px solid #E2DDD2">
+<span style="font-size:12px;font-weight:600">Today</span><span style="font-size:12px;color:#6B675F">Week</span>
+<div style="width:72px;height:72px;border-radius:50%;background:#D9481C;color:#fff;display:grid;place-items:center;margin-top:-30px;box-shadow:0 10px 24px rgba(217,72,28,.35)"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg></div>
+<span style="font-size:12px;color:#6B675F">Inbox</span><span style="font-size:12px;color:#6B675F">Usage</span>
+</div>
+</div>
+
+<div style="border:10px solid #141414;border-radius:58px;overflow:hidden;width:390px;height:844px;background:#F4F1EA;color:#1C1B19;font-family:'Geist',sans-serif;display:flex;flex-direction:column;box-shadow:0 24px 50px rgba(0,0,0,.18)">
+<div style="display:flex;justify-content:space-between;padding:16px 30px 0;font-size:15px;font-weight:600"><span>9:41</span><span style="width:22px;height:11px;border:1.5px solid #1C1B19;border-radius:3px;display:block;position:relative"><span style="position:absolute;inset:1.5px;background:#1C1B19;border-radius:1px;display:block"></span></span></div>
+<div style="padding:20px 24px 0">
+<div style="font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#6B675F">Claude this week</div>
+<div style="display:flex;align-items:baseline;gap:10px;margin-top:4px"><span style="font-family:'Instrument Serif',serif;font-size:72px;line-height:1">38%</span><span style="font-size:15px;color:#6B675F">left</span></div>
+<div style="font-size:13px;color:#6B675F;margin-top:4px">Resets Monday 09:00 · at this pace you run out Sunday</div>
+</div>
+<div style="padding:18px 24px 0">
+<div style="display:grid;grid-template-columns:repeat(10,1fr);gap:3px;max-width:280px">
+<sc-for list="{{ cellsPaper }}" as="c" hint-placeholder-count="100"><div style="aspect-ratio:1;border-radius:3px;background:{{ c.bg }};box-shadow:{{ c.ring }}"></div></sc-for>
+</div>
+<div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px;font-size:12px;color:#6B675F">
+<span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:2px;background:oklch(0.52 0.08 250);display:block"></span>Work 38%</span>
+<span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:2px;background:oklch(0.76 0.1 75);display:block"></span>Personal 15%</span>
+<span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:2px;background:oklch(0.64 0.08 150);display:block"></span>Health 9%</span>
+<span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:2px;box-shadow:inset 0 0 0 1.5px #D9481C;display:block"></span>Held 20%</span>
+</div>
+</div>
+<div style="margin:18px 16px 0;background:#FFFDF8;border:1px solid #E2DDD2;border-radius:18px;padding:14px 16px;display:flex;gap:12px;align-items:center">
+<div style="flex:1"><div style="font-size:15px;font-weight:500">Save for high priority</div><div style="font-size:12px;color:#6B675F;margin-top:3px;line-height:1.4">Low-priority requests wait until Monday.</div></div>
+<div style="width:48px;height:28px;border-radius:14px;background:#D9481C;position:relative;flex:none"><div style="position:absolute;right:3px;top:3px;width:22px;height:22px;border-radius:50%;background:#fff"></div></div>
+</div>
+<div style="padding:16px 24px 0;flex:1;min-height:0;overflow:hidden">
+<div style="font-family:'Instrument Serif',serif;font-size:22px;margin-bottom:4px">Planned Claude work</div>
+<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #E2DDD2;font-size:14px"><span>Draft reply to Sam</span><span style="color:#6B675F">~2%</span></div>
+<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #E2DDD2;font-size:14px"><span>Break down Q4 deck</span><span style="color:#6B675F">~3%</span></div>
+<div style="display:flex;justify-content:space-between;padding:9px 0;font-size:14px;color:#6B675F"><span>3 low-priority requests</span><span>Waiting</span></div>
+</div>
+<div style="display:flex;align-items:center;justify-content:space-around;padding:10px 12px 28px;border-top:1px solid #E2DDD2">
+<span style="font-size:12px;color:#6B675F">Today</span><span style="font-size:12px;color:#6B675F">Week</span>
+<div style="width:72px;height:72px;border-radius:50%;background:#D9481C;color:#fff;display:grid;place-items:center;margin-top:-30px;box-shadow:0 10px 24px rgba(217,72,28,.35)"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg></div>
+<span style="font-size:12px;color:#6B675F">Inbox</span><span style="font-size:12px;font-weight:600">Usage</span>
+</div>
+</div>
+
+</div>
+</div>
+
+<div class="dv-opt" id="2b">
+<div class="dv-olabel"><a class="dv-oid" href="#2b">2b</a>Bold type and voice bar from 1c, list with time bars from 1a</div>
+<div style="display:flex;gap:28px;flex-wrap:wrap">
+
+<div style="border:10px solid #141414;border-radius:58px;overflow:hidden;width:390px;height:844px;background:#F4F1EA;color:#1C1B19;font-family:'Bricolage Grotesque',sans-serif;display:flex;flex-direction:column;box-shadow:0 24px 50px rgba(0,0,0,.18)">
+<div style="display:flex;justify-content:space-between;padding:16px 30px 0;font-size:15px;font-weight:600"><span>9:41</span><span style="width:22px;height:11px;border:1.5px solid #1C1B19;border-radius:3px;display:block;position:relative"><span style="position:absolute;inset:1.5px;background:#1C1B19;border-radius:1px;display:block"></span></span></div>
+<div style="padding:18px 22px 0;display:flex;align-items:baseline;gap:8px"><span style="font-size:60px;font-weight:800;letter-spacing:-.04em;line-height:.9">Thu</span><span style="font-size:22px;font-weight:600;color:#6B675F">1 Oct</span><span style="margin-left:auto;font-size:13px;color:#6B675F">7h 40m / 6h</span></div>
+<div style="padding:16px 22px 0;flex:1;min-height:0;overflow:hidden">
+<sc-for list="{{ listTop }}" as="t" hint-placeholder-count="6">
+<div style="display:flex;gap:12px;align-items:center;padding:9px 0;border-bottom:1px solid #E2DDD2">
+<div style="width:20px;height:20px;border-radius:50%;border:1.5px solid #1C1B19;flex:none"></div>
+<div style="flex:1;min-width:0"><div style="font-size:16px;font-weight:600">{{ t.title }}</div><div style="font-size:12px;color:#6B675F;margin-top:2px">{{ t.meta }}</div></div>
+<div style="width:64px;flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:4px"><span style="font-size:12px;font-weight:600">{{ t.dur }}</span><div style="height:6px;border-radius:3px;background:{{ t.color }};width:{{ t.w }}%"></div></div>
+</div>
+</sc-for>
+<div style="display:flex;align-items:center;gap:8px;margin:10px 0 2px;font-size:12px;font-weight:600;color:#D9481C"><div style="flex:1;border-top:2px dashed #D9481C"></div><span>6h free ends here</span></div>
+<sc-for list="{{ listOver }}" as="t" hint-placeholder-count="2">
+<div style="display:flex;gap:12px;align-items:center;padding:9px 0;border-bottom:1px solid #E2DDD2;opacity:.75">
+<div style="width:20px;height:20px;border-radius:50%;border:1.5px dashed #6B675F;flex:none"></div>
+<div style="flex:1;min-width:0"><div style="font-size:16px;font-weight:600">{{ t.title }}</div><div style="font-size:12px;color:#D9481C;margin-top:2px">{{ t.meta }}</div></div>
+<div style="width:64px;flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:4px"><span style="font-size:12px;font-weight:600">{{ t.dur }}</span><div style="height:6px;border-radius:3px;background:{{ t.color }};width:{{ t.w }}%"></div></div>
+</div>
+</sc-for>
+<div style="margin-top:12px;background:#1C1B19;color:#F4F1EA;border-radius:16px;padding:12px 14px;display:flex;align-items:center;gap:10px">
+<div style="flex:1;font-size:14px;line-height:1.35">Move both to the days suggested?</div>
+<span style="padding:7px 12px;border-radius:99px;border:1px solid #45423D;font-size:12px">One by one</span><span style="padding:7px 12px;border-radius:99px;background:#D9481C;color:#fff;font-size:12px;font-weight:600">Both</span>
+</div>
+</div>
+<div style="padding:14px 16px 30px;display:flex;align-items:center;gap:10px">
+<div style="flex:1;height:64px;border-radius:32px;background:#1C1B19;color:#F4F1EA;display:flex;align-items:center;gap:12px;padding:0 8px 0 24px"><span style="flex:1;font-size:15px;color:#B7B0A3">Tap and say what you need</span><div style="width:50px;height:50px;border-radius:50%;background:#D9481C;color:#fff;display:grid;place-items:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg></div></div>
+<div style="width:64px;height:64px;border-radius:50%;background:conic-gradient(#D9481C 0 38%,#DED8CC 0);display:grid;place-items:center"><div style="width:52px;height:52px;border-radius:50%;background:#F4F1EA;display:grid;place-items:center;font-size:13px;font-weight:600">38%</div></div>
+</div>
+</div>
+
+<div style="border:10px solid #141414;border-radius:58px;overflow:hidden;width:390px;height:844px;background:#F4F1EA;color:#1C1B19;font-family:'Bricolage Grotesque',sans-serif;display:flex;flex-direction:column;box-shadow:0 24px 50px rgba(0,0,0,.18)">
+<div style="display:flex;justify-content:space-between;padding:16px 30px 0;font-size:15px;font-weight:600"><span>9:41</span><span style="width:22px;height:11px;border:1.5px solid #1C1B19;border-radius:3px;display:block;position:relative"><span style="position:absolute;inset:1.5px;background:#1C1B19;border-radius:1px;display:block"></span></span></div>
+<div style="padding:18px 22px 0">
+<div style="font-size:15px;font-weight:600;color:#6B675F">Claude this week</div>
+<div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:76px;font-weight:800;letter-spacing:-.05em;line-height:1">38%</span><span style="font-size:18px;font-weight:600;color:#6B675F">left</span></div>
+<div style="font-size:13px;color:#6B675F">Resets Monday 09:00 · runs out Sunday at this pace</div>
+</div>
+<div style="padding:20px 22px 0">
+<div style="display:flex;height:40px;border-radius:12px;overflow:hidden;gap:3px">
+<div style="width:38%;background:oklch(0.52 0.08 250)"></div><div style="width:15%;background:oklch(0.76 0.1 75)"></div><div style="width:9%;background:oklch(0.64 0.08 150)"></div><div style="width:20%;background:repeating-linear-gradient(135deg,#D9481C 0 3px,#F4C9B8 3px 8px)"></div><div style="width:18%;background:#E2DDD2"></div>
+</div>
+<div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px;font-size:12px;color:#6B675F">
+<span>Work 38%</span><span>Personal 15%</span><span>Health 9%</span><span style="color:#D9481C">Held 20%</span><span>Free 18%</span>
+</div>
+</div>
+<div style="margin:20px 16px 0;background:#FFFDF8;border:1px solid #E2DDD2;border-radius:18px;padding:14px 16px;display:flex;gap:12px;align-items:center">
+<div style="flex:1"><div style="font-size:16px;font-weight:600">High priority only</div><div style="font-size:12px;color:#6B675F;margin-top:3px;line-height:1.4">Everything else waits until Monday.</div></div>
+<div style="width:48px;height:28px;border-radius:14px;background:#D9481C;position:relative;flex:none"><div style="position:absolute;right:3px;top:3px;width:22px;height:22px;border-radius:50%;background:#fff"></div></div>
+</div>
+<div style="padding:18px 22px 0;flex:1;min-height:0;overflow:hidden">
+<div style="font-size:16px;font-weight:600;margin-bottom:4px">Coming up</div>
+<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #E2DDD2;font-size:15px"><span>Draft reply to Sam</span><span style="font-weight:600">2%</span></div>
+<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #E2DDD2;font-size:15px"><span>Break down Q4 deck</span><span style="font-weight:600">3%</span></div>
+<div style="display:flex;justify-content:space-between;padding:10px 0;font-size:15px;color:#6B675F"><span>3 low-priority, waiting</span><span>Run anyway</span></div>
+</div>
+<div style="padding:14px 16px 30px;display:flex;align-items:center;gap:10px">
+<div style="flex:1;height:64px;border-radius:32px;background:#1C1B19;color:#F4F1EA;display:flex;align-items:center;gap:12px;padding:0 8px 0 24px"><span style="flex:1;font-size:15px;color:#B7B0A3">"I've used 65% now"</span><div style="width:50px;height:50px;border-radius:50%;background:#D9481C;color:#fff;display:grid;place-items:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg></div></div>
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+<p class="dv-next">Try next: "<a class="dv-oid" href="#2a">2a</a>, now the week view and Mac" · "<a class="dv-oid" href="#2b">2b</a> with the usage grid from <a class="dv-oid" href="#2a">2a</a>" · "build <a class="dv-oid" href="#2a">2a</a> as the working app"</p>
+</section>
+<section class="dv-turn" id="t1">
+<div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Docket: three directions for Today and Usage (iPhone)</span></div>
+<p style="margin:0 0 28px;max-width:760px;font:13px/1.55 system-ui,sans-serif;color:rgba(0,0,0,.62);text-wrap:pretty">Same day in all three: Thursday 1 Oct, 7h 40m planned against 6h free, 62% of the weekly Claude limit used, resets Monday 09:00. Claude proposes two moves and waits for approval. Low-budget mode keeps the remaining usage for high-priority tasks. The usage % is entered by you (Claude doesn't expose it to apps). Theme follows the system; <a class="dv-oid" href="#1b">1b</a> is shown dark, the others light.</p>
+<div class="dv-opts">
+
+<div class="dv-opt" id="1a">
+<div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>Paper: calm list, serif dates, one vermilion accent</div>
+<div style="display:flex;gap:28px;flex-wrap:wrap">
+
+<div style="border:10px solid #141414;border-radius:58px;overflow:hidden;width:390px;height:844px;background:#F4F1EA;color:#1C1B19;font-family:'Geist',sans-serif;display:flex;flex-direction:column;box-shadow:0 24px 50px rgba(0,0,0,.18)">
+<div style="display:flex;justify-content:space-between;padding:16px 30px 0;font-size:15px;font-weight:600"><span>9:41</span><span style="display:flex;gap:6px;align-items:center"><span style="width:22px;height:11px;border:1.5px solid #1C1B19;border-radius:3px;display:block;position:relative"><span style="position:absolute;inset:1.5px;background:#1C1B19;border-radius:1px;display:block"></span></span></span></div>
+<div style="padding:22px 24px 0;display:flex;justify-content:space-between;align-items:flex-end">
+<div><div style="font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#6B675F">Thursday</div><div style="font-family:'Instrument Serif',serif;font-size:46px;line-height:1;margin-top:4px">1 October</div></div>
+<div style="display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:44px;height:44px;border-radius:50%;background:conic-gradient(#D9481C 0 38%,#DED8CC 0);display:grid;place-items:center"><div style="width:34px;height:34px;border-radius:50%;background:#F4F1EA;display:grid;place-items:center;font-size:11px;font-weight:600">38%</div></div><div style="font-size:10px;color:#6B675F">Claude left</div></div>
+</div>
+<div style="padding:10px 24px 0;font-size:13px;color:#6B675F">9 tasks · 7h 40m planned · 6h free</div>
+<div style="margin:16px 16px 0;background:#FFFDF8;border:1px solid #E2DDD2;border-radius:18px;padding:14px 16px">
+<div style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#D9481C"><span style="width:7px;height:7px;border-radius:50%;background:#D9481C;display:block"></span>Claude</div>
+<div style="font-size:15px;margin-top:6px;line-height:1.35">You're 1h 40m over today. Move these?</div>
+<div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:14px"><span style="white-space:nowrap">Gym <span style="color:#6B675F">→ Fri 6pm</span></span><span style="display:flex;gap:6px"><span style="padding:6px 10px;border-radius:99px;border:1px solid #DED8CC;font-size:12px">Skip</span><span style="padding:6px 12px;border-radius:99px;background:#1C1B19;color:#F4F1EA;font-size:12px">Move</span></span></div>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:14px"><span style="white-space:nowrap">Lisbon trip <span style="color:#6B675F">→ Sat</span></span><span style="display:flex;gap:6px"><span style="padding:6px 10px;border-radius:99px;border:1px solid #DED8CC;font-size:12px">Skip</span><span style="padding:6px 12px;border-radius:99px;background:#1C1B19;color:#F4F1EA;font-size:12px">Move</span></span></div>
+</div>
+</div>
+<div style="padding:20px 24px 0;flex:1;overflow:hidden">
+<div style="font-family:'Instrument Serif',serif;font-size:22px;margin-bottom:6px">Must do</div>
+<div style="display:flex;gap:12px;padding:11px 0;border-bottom:1px solid #E2DDD2"><div style="width:20px;height:20px;border-radius:50%;border:1.5px solid #1C1B19;flex:none;margin-top:1px"></div><div style="flex:1"><div style="font-size:15px">Reply to Sam about contract renewal</div><div style="display:flex;gap:6px;align-items:center;margin-top:4px;font-size:12px;color:#6B675F;flex-wrap:wrap"><span>Work · 15m</span><span style="padding:2px 7px;border-radius:99px;background:#F8DCD0;color:#9A2E0C">Draft ready</span><span style="padding:2px 7px;border-radius:99px;border:1px solid #DED8CC">Gmail</span></div></div></div>
+<div style="display:flex;gap:12px;padding:11px 0;border-bottom:1px solid #E2DDD2"><div style="width:20px;height:20px;border-radius:50%;border:1.5px solid #1C1B19;flex:none;margin-top:1px"></div><div style="flex:1"><div style="font-size:15px">Finish Q4 budget deck</div><div style="display:flex;gap:6px;margin-top:4px;font-size:12px;color:#6B675F"><span>Q4 planning · 2h 30m · High energy · 2 of 4 steps</span></div><div style="height:3px;background:#E2DDD2;border-radius:2px;margin-top:8px"><div style="width:50%;height:3px;background:#1C1B19;border-radius:2px"></div></div></div></div>
+<div style="display:flex;gap:12px;padding:11px 0;border-bottom:1px solid #E2DDD2"><div style="width:20px;height:20px;border-radius:50%;border:1.5px solid #1C1B19;flex:none;margin-top:1px"></div><div style="flex:1"><div style="font-size:15px">Pay Acme invoice</div><div style="display:flex;gap:6px;align-items:center;margin-top:4px;font-size:12px;color:#6B675F"><span>Work · 10m · Due Fri, found in email</span></div></div></div>
+<div style="font-family:'Instrument Serif',serif;font-size:22px;margin:16px 0 6px">If there's time</div>
+<div style="display:flex;gap:12px;padding:11px 0;border-bottom:1px solid #E2DDD2"><div style="width:20px;height:20px;border-radius:50%;border:1.5px solid #B7B0A3;flex:none;margin-top:1px"></div><div style="flex:1"><div style="font-size:15px">Call mum</div><div style="margin-top:4px;font-size:12px;color:#6B675F">Personal · 20m · Low energy</div></div></div>
+<div style="font-size:13px;color:#6B675F;padding-top:10px">+ 5 more</div>
+</div>
+<div style="display:flex;align-items:center;justify-content:space-around;padding:10px 12px 28px;border-top:1px solid #E2DDD2;background:#F4F1EA">
+<span style="font-size:12px;font-weight:600">Today</span><span style="font-size:12px;color:#6B675F">Week</span>
+<div style="width:72px;height:72px;border-radius:50%;background:#D9481C;color:#fff;display:grid;place-items:center;margin-top:-30px;box-shadow:0 10px 24px rgba(217,72,28,.35)"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg></div>
+<span style="font-size:12px;color:#6B675F">Inbox</span><span style="font-size:12px;color:#6B675F">Usage</span>
+</div>
+</div>
+
+<div style="border:10px solid #141414;border-radius:58px;overflow:hidden;width:390px;height:844px;background:#F4F1EA;color:#1C1B19;font-family:'Geist',sans-serif;display:flex;flex-direction:column;box-shadow:0 24px 50px rgba(0,0,0,.18)">
+<div style="display:flex;justify-content:space-between;padding:16px 30px 0;font-size:15px;font-weight:600"><span>9:41</span><span style="width:22px;height:11px;border:1.5px solid #1C1B19;border-radius:3px;display:block;position:relative"><span style="position:absolute;inset:1.5px;background:#1C1B19;border-radius:1px;display:block"></span></span></div>
+<div style="padding:22px 24px 0">
+<div style="font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#6B675F">Claude this week</div>
+<div style="display:flex;align-items:baseline;gap:10px;margin-top:4px"><span style="font-family:'Instrument Serif',serif;font-size:72px;line-height:1">38%</span><span style="font-size:15px;color:#6B675F">left</span></div>
+<div style="font-size:13px;color:#6B675F;margin-top:6px">Resets Monday 09:00 · 3 days 15 hours</div>
+</div>
+<div style="padding:22px 24px 0">
+<div style="display:flex;height:14px;border-radius:7px;overflow:hidden;gap:2px">
+<div style="width:14%;background:#1C1B19"></div><div style="width:19%;background:#1C1B19"></div><div style="width:17%;background:#1C1B19"></div><div style="width:12%;background:#1C1B19;opacity:.55"></div><div style="width:20%;background:repeating-linear-gradient(45deg,#D9481C 0 3px,#F4C9B8 3px 7px)"></div><div style="width:18%;background:#DED8CC"></div>
+</div>
+<div style="display:flex;justify-content:space-between;font-size:11px;color:#6B675F;margin-top:6px"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Reserved</span><span>Free</span></div>
+<div style="font-size:14px;margin-top:14px;line-height:1.4">At this pace you run out on <b style="font-weight:600">Sunday afternoon</b>.</div>
+</div>
+<div style="margin:20px 16px 0;background:#FFFDF8;border:1px solid #E2DDD2;border-radius:18px;padding:14px 16px;display:flex;gap:12px;align-items:center">
+<div style="flex:1"><div style="font-size:15px;font-weight:500">Save for high priority</div><div style="font-size:12px;color:#6B675F;margin-top:3px;line-height:1.4">20% held back. Low-priority requests wait until Monday.</div></div>
+<div style="width:48px;height:28px;border-radius:14px;background:#D9481C;position:relative;flex:none"><div style="position:absolute;right:3px;top:3px;width:22px;height:22px;border-radius:50%;background:#fff"></div></div>
+</div>
+<div style="padding:20px 24px 0;flex:1">
+<div style="font-family:'Instrument Serif',serif;font-size:22px;margin-bottom:6px">Planned Claude work</div>
+<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #E2DDD2;font-size:14px"><span>Draft reply to Sam</span><span style="color:#6B675F">~2%</span></div>
+<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #E2DDD2;font-size:14px"><span>Break down Q4 deck</span><span style="color:#6B675F">~3%</span></div>
+<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #E2DDD2;font-size:14px"><span>Plan next week (Mon)</span><span style="color:#6B675F">~5%</span></div>
+<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #E2DDD2;font-size:14px;color:#6B675F"><span>3 low-priority requests</span><span>Waiting</span></div>
+</div>
+<div style="padding:0 24px 34px;display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#6B675F"><span>You updated this 2h ago</span><span style="padding:8px 14px;border-radius:99px;border:1px solid #1C1B19;color:#1C1B19;font-weight:500">Update usage</span></div>
+</div>
+
+</div>
+</div>
+
+<div class="dv-opt" id="1b">
+<div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>Console: dark, timeline, voice sheet shown mid-command</div>
+<div style="display:flex;gap:28px;flex-wrap:wrap">
+
+<div style="border:10px solid #141414;border-radius:58px;overflow:hidden;width:390px;height:844px;background:#0E0F0C;color:#ECEDE6;font-family:'Space Grotesk',sans-serif;display:flex;flex-direction:column;position:relative;box-shadow:0 24px 50px rgba(0,0,0,.25)">
+<div style="display:flex;justify-content:space-between;padding:16px 30px 0;font-size:15px;font-weight:600"><span>9:41</span><span style="width:22px;height:11px;border:1.5px solid #ECEDE6;border-radius:3px;display:block;position:relative"><span style="position:absolute;inset:1.5px;background:#ECEDE6;border-radius:1px;display:block"></span></span></div>
+<div style="padding:20px 22px 0">
+<div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;color:#8A8D85">THU 01 OCT · WEEK 40</div>
+<div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:4px"><span style="font-size:34px;font-weight:600;letter-spacing:-.02em">Today</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#C6F24E">38% claude</span></div>
+<div style="display:flex;height:8px;margin-top:12px;gap:2px"><div style="flex:6;background:#C6F24E;border-radius:4px 0 0 4px"></div><div style="flex:1.67;background:#FF7A45;border-radius:0 4px 4px 0"></div></div>
+<div style="display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:11px;color:#8A8D85;margin-top:6px"><span>7h40 planned</span><span style="color:#FF7A45">+1h40 over</span></div>
+</div>
+<div style="margin:16px 14px 0;background:#17191A;border-radius:14px;padding:12px 14px;font-family:'JetBrains Mono',monospace;font-size:12px">
+<div style="color:#8A8D85">claude › 2 moves proposed</div>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px"><span>gym → fri 18:00</span><span style="display:flex;gap:6px"><span style="width:28px;height:28px;border-radius:8px;border:1px solid #2C2F2D;display:grid;place-items:center;color:#8A8D85">✕</span><span style="width:28px;height:28px;border-radius:8px;background:#C6F24E;color:#0E0F0C;display:grid;place-items:center">✓</span></span></div>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px"><span>lisbon trip → sat 10:00</span><span style="display:flex;gap:6px"><span style="width:28px;height:28px;border-radius:8px;border:1px solid #2C2F2D;display:grid;place-items:center;color:#8A8D85">✕</span><span style="width:28px;height:28px;border-radius:8px;background:#C6F24E;color:#0E0F0C;display:grid;place-items:center">✓</span></span></div>
+</div>
+<div style="padding:14px 22px 0;display:flex;flex-direction:column">
+<div style="display:flex;gap:14px;padding:9px 0;border-bottom:1px solid #1F2220"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#8A8D85;width:40px;flex:none;padding-top:2px">09:00</span><div style="flex:1"><div style="font-size:15px">Reply to Sam</div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#C6F24E;margin-top:3px">draft ready · gmail</div></div><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#8A8D85">15m</span></div>
+<div style="display:flex;gap:14px;padding:9px 0;border-bottom:1px solid #1F2220"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#8A8D85;width:40px;flex:none;padding-top:2px">09:30</span><div style="flex:1"><div style="font-size:15px">Q4 budget deck</div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#8A8D85;margin-top:3px">step 3/4 · revenue slides · ▲ energy</div></div><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#8A8D85">2h30</span></div>
+<div style="display:flex;gap:14px;padding:9px 0;border-bottom:1px solid #1F2220"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#8A8D85;width:40px;flex:none;padding-top:2px">13:00</span><div style="flex:1"><div style="font-size:15px">Team sync</div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#8A8D85;margin-top:3px">work · calendar</div></div><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#8A8D85">1h</span></div>
+</div>
+<div style="position:absolute;left:0;right:0;bottom:0;background:#17191A;border-radius:28px 28px 0 0;padding:18px 20px 30px;box-shadow:0 -12px 30px rgba(0,0,0,.5)">
+<div style="width:36px;height:4px;border-radius:2px;background:#2C2F2D;margin:0 auto 14px"></div>
+<div style="font-size:18px;line-height:1.35">"Add pay the Acme invoice, due Friday, it's urgent"</div>
+<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;font-family:'JetBrains Mono',monospace;font-size:11px">
+<span style="padding:5px 9px;border-radius:7px;background:#222523">task: Pay Acme invoice</span><span style="padding:5px 9px;border-radius:7px;background:#222523">due: fri 02 oct</span><span style="padding:5px 9px;border-radius:7px;background:#3A2016;color:#FF9E78">priority: high</span><span style="padding:5px 9px;border-radius:7px;background:#222523">area: work</span><span style="padding:5px 9px;border-radius:7px;background:#222523">~10m</span>
+</div>
+<div style="display:flex;align-items:center;justify-content:space-between;margin-top:18px">
+<span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#8A8D85">cancel</span>
+<div style="display:flex;align-items:center;gap:3px;height:36px">
+<sc-for list="{{ wave }}" as="h" hint-placeholder-count="14"><div style="width:3px;border-radius:2px;background:#C6F24E;height:{{ h }}px"></div></sc-for>
+</div>
+<div style="width:76px;height:76px;border-radius:50%;background:#C6F24E;color:#0E0F0C;display:grid;place-items:center;box-shadow:0 0 0 8px rgba(198,242,78,.15)"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg></div>
+</div>
+</div>
+</div>
+
+<div style="border:10px solid #141414;border-radius:58px;overflow:hidden;width:390px;height:844px;background:#0E0F0C;color:#ECEDE6;font-family:'Space Grotesk',sans-serif;display:flex;flex-direction:column;box-shadow:0 24px 50px rgba(0,0,0,.25)">
+<div style="display:flex;justify-content:space-between;padding:16px 30px 0;font-size:15px;font-weight:600"><span>9:41</span><span style="width:22px;height:11px;border:1.5px solid #ECEDE6;border-radius:3px;display:block;position:relative"><span style="position:absolute;inset:1.5px;background:#ECEDE6;border-radius:1px;display:block"></span></span></div>
+<div style="padding:20px 22px 0">
+<div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;color:#8A8D85">WEEKLY CLAUDE LIMIT</div>
+<div style="display:flex;align-items:baseline;gap:10px;margin-top:6px"><span style="font-size:80px;font-weight:600;letter-spacing:-.04em;line-height:.9">62<span style="font-size:40px">%</span></span><span style="font-size:14px;color:#8A8D85">used</span></div>
+<div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#8A8D85;margin-top:10px">38% left · resets mon 09:00</div>
+</div>
+<div style="padding:24px 22px 0">
+<div style="display:flex;align-items:flex-end;gap:8px;height:120px;border-bottom:1px solid #2C2F2D">
+<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%"><div style="height:47%;background:#ECEDE6;border-radius:4px 4px 0 0"></div></div>
+<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%"><div style="height:63%;background:#ECEDE6;border-radius:4px 4px 0 0"></div></div>
+<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%"><div style="height:57%;background:#ECEDE6;border-radius:4px 4px 0 0"></div></div>
+<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%"><div style="height:40%;background:#C6F24E;border-radius:4px 4px 0 0"></div></div>
+<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%"><div style="height:55%;border:1px dashed #FF7A45;border-bottom:none;border-radius:4px 4px 0 0"></div></div>
+<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%"><div style="height:50%;border:1px dashed #FF7A45;border-bottom:none;border-radius:4px 4px 0 0"></div></div>
+<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%"><div style="height:30%;border:1px dashed #2C2F2D;border-bottom:none;border-radius:4px 4px 0 0"></div></div>
+</div>
+<div style="display:flex;gap:8px;font-family:'JetBrains Mono',monospace;font-size:10px;color:#8A8D85;margin-top:6px"><span style="flex:1;text-align:center">M</span><span style="flex:1;text-align:center">T</span><span style="flex:1;text-align:center">W</span><span style="flex:1;text-align:center;color:#C6F24E">T</span><span style="flex:1;text-align:center">F</span><span style="flex:1;text-align:center">S</span><span style="flex:1;text-align:center">S</span></div>
+<div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#FF7A45;margin-top:12px">at this pace: empty by sun ~14:00</div>
+</div>
+<div style="margin:20px 14px 0;background:#17191A;border-radius:14px;padding:14px">
+<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#C6F24E">LOW BUDGET MODE</span><div style="width:44px;height:26px;border-radius:13px;background:#C6F24E;position:relative"><div style="position:absolute;right:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#0E0F0C"></div></div></div>
+<div style="font-size:14px;margin-top:6px;line-height:1.4;color:#C9CBC3">Only high-priority tasks use Claude. 3 requests held until Monday.</div>
+</div>
+<div style="padding:18px 22px 0;font-family:'JetBrains Mono',monospace;font-size:12px;flex:1">
+<div style="color:#8A8D85;margin-bottom:6px">QUEUE</div>
+<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #1F2220"><span>draft reply · sam</span><span style="color:#8A8D85">2%</span></div>
+<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #1F2220"><span>break down · q4 deck</span><span style="color:#8A8D85">3%</span></div>
+<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #1F2220"><span>plan week · mon</span><span style="color:#8A8D85">5%</span></div>
+<div style="display:flex;justify-content:space-between;padding:8px 0;color:#5E615A"><span>3 held · low priority</span><span>—</span></div>
+</div>
+<div style="display:flex;justify-content:space-around;padding:12px 0 30px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#8A8D85;border-top:1px solid #1F2220"><span>today</span><span>week</span><span style="color:#C6F24E">usage</span><span>inbox</span></div>
+</div>
+
+</div>
+</div>
+
+<div class="dv-opt" id="1c">
+<div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>Blocks: the day as stacked time blocks, overflow below the line</div>
+<div style="display:flex;gap:28px;flex-wrap:wrap">
+
+<div style="border:10px solid #141414;border-radius:58px;overflow:hidden;width:390px;height:844px;background:#FAFAF7;color:#121212;font-family:'Bricolage Grotesque',sans-serif;display:flex;flex-direction:column;box-shadow:0 24px 50px rgba(0,0,0,.18)">
+<div style="display:flex;justify-content:space-between;padding:16px 30px 0;font-size:15px;font-weight:600"><span>9:41</span><span style="width:22px;height:11px;border:1.5px solid #121212;border-radius:3px;display:block;position:relative"><span style="position:absolute;inset:1.5px;background:#121212;border-radius:1px;display:block"></span></span></div>
+<div style="padding:18px 22px 0;display:flex;justify-content:space-between;align-items:flex-end">
+<div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:60px;font-weight:800;letter-spacing:-.04em;line-height:.9">Thu</span><span style="font-size:22px;font-weight:600;color:#6E6E6A">1 Oct</span></div>
+<div style="display:flex;flex-direction:column;gap:3px;font-size:11px;color:#55554F">
+<span style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:2px;background:oklch(0.62 0.15 255);display:block"></span>Work</span>
+<span style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:2px;background:oklch(0.8 0.13 75);display:block"></span>Personal</span>
+<span style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:2px;background:oklch(0.72 0.13 150);display:block"></span>Health</span>
+</div>
+</div>
+<div style="padding:18px 16px 0;display:flex;flex-direction:column;gap:4px;flex:1">
+<div style="height:106px;border-radius:14px;background:oklch(0.62 0.15 255);color:#fff;padding:12px 14px;display:flex;flex-direction:column;justify-content:space-between;box-sizing:border-box"><div style="display:flex;justify-content:space-between;font-weight:600;font-size:16px"><span>Finish Q4 budget deck</span><span>2h 30</span></div><div style="font-size:12px;opacity:.9">High energy · step 3 of 4: revenue slides</div></div>
+<div style="height:46px;border-radius:12px;background:oklch(0.62 0.15 255);color:#fff;padding:0 14px;display:flex;align-items:center;justify-content:space-between;font-weight:600;font-size:15px;box-sizing:border-box"><span>Team sync</span><span>1h</span></div>
+<div style="height:74px;border-radius:12px;background:#ECECE6;padding:10px 14px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between"><div style="display:flex;justify-content:space-between;font-weight:600;font-size:15px"><span>5 quick ones</span><span>1h 45</span></div><div style="font-size:12px;color:#55554F;line-height:1.35">Reply to Sam (draft ready) · Pay Acme invoice · Call mum · Book dentist · Review contract</div></div>
+<div style="height:34px;border-radius:12px;background:oklch(0.8 0.13 75);padding:0 14px;display:flex;align-items:center;justify-content:space-between;font-weight:600;font-size:15px;box-sizing:border-box"><span>Groceries</span><span>45m</span></div>
+<div style="display:flex;align-items:center;gap:8px;margin:6px 0;font-size:12px;font-weight:600;color:#C2410C"><div style="flex:1;border-top:2px dashed #C2410C"></div><span>6h free ends here</span><div style="width:20px;border-top:2px dashed #C2410C"></div></div>
+<div style="height:46px;border-radius:12px;background:repeating-linear-gradient(135deg,oklch(0.8 0.13 75) 0 6px,oklch(0.9 0.07 75) 6px 12px);padding:0 14px;display:flex;align-items:center;justify-content:space-between;font-weight:600;font-size:15px;box-sizing:border-box"><span>Plan Lisbon trip</span><span>1h</span></div>
+<div style="height:34px;border-radius:12px;background:repeating-linear-gradient(135deg,oklch(0.72 0.13 150) 0 6px,oklch(0.86 0.07 150) 6px 12px);padding:0 14px;display:flex;align-items:center;justify-content:space-between;font-weight:600;font-size:15px;box-sizing:border-box"><span>Gym</span><span>40m</span></div>
+<div style="margin-top:10px;background:#121212;color:#FAFAF7;border-radius:16px;padding:12px 14px;display:flex;align-items:center;gap:10px">
+<div style="flex:1;font-size:14px;line-height:1.35">Move the trip to Sat and gym to Fri?</div>
+<span style="padding:7px 12px;border-radius:99px;border:1px solid #3a3a37;font-size:12px">One by one</span><span style="padding:7px 12px;border-radius:99px;background:#FAFAF7;color:#121212;font-size:12px;font-weight:600">Both</span>
+</div>
+</div>
+<div style="padding:14px 16px 30px;display:flex;align-items:center;gap:10px">
+<div style="flex:1;height:64px;border-radius:32px;background:#121212;color:#FAFAF7;display:flex;align-items:center;gap:12px;padding:0 8px 0 24px"><span style="flex:1;font-size:15px;color:#BDBDB6">Tap and say what you need</span><div style="width:50px;height:50px;border-radius:50%;background:#FAFAF7;color:#121212;display:grid;place-items:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg></div></div>
+<div style="width:64px;height:64px;border-radius:50%;background:#ECECE6;display:grid;place-items:center;font-size:13px;font-weight:600">38%</div>
+</div>
+</div>
+
+<div style="border:10px solid #141414;border-radius:58px;overflow:hidden;width:390px;height:844px;background:#FAFAF7;color:#121212;font-family:'Bricolage Grotesque',sans-serif;display:flex;flex-direction:column;box-shadow:0 24px 50px rgba(0,0,0,.18)">
+<div style="display:flex;justify-content:space-between;padding:16px 30px 0;font-size:15px;font-weight:600"><span>9:41</span><span style="width:22px;height:11px;border:1.5px solid #121212;border-radius:3px;display:block;position:relative"><span style="position:absolute;inset:1.5px;background:#121212;border-radius:1px;display:block"></span></span></div>
+<div style="padding:18px 22px 0">
+<div style="font-size:15px;font-weight:600;color:#6E6E6A">Claude this week</div>
+<div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:68px;font-weight:800;letter-spacing:-.05em;line-height:1">38%</span><span style="font-size:18px;font-weight:600;color:#6E6E6A">left</span></div>
+<div style="font-size:13px;color:#55554F">Resets Monday 09:00</div>
+</div>
+<div style="padding:18px 22px 0">
+<div style="display:grid;grid-template-columns:repeat(10,1fr);gap:3px;max-width:270px">
+<sc-for list="{{ cells }}" as="c" hint-placeholder-count="100"><div style="aspect-ratio:1;border-radius:4px;background:{{ c.bg }};box-shadow:{{ c.ring }}"></div></sc-for>
+</div>
+<div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;font-size:12px;color:#55554F">
+<span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:2px;background:oklch(0.62 0.15 255);display:block"></span>Work 38%</span>
+<span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:2px;background:oklch(0.8 0.13 75);display:block"></span>Personal 15%</span>
+<span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:2px;background:oklch(0.72 0.13 150);display:block"></span>Health 9%</span>
+<span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:2px;box-shadow:inset 0 0 0 1.5px #C2410C;display:block"></span>Held for high priority 20%</span>
+</div>
+</div>
+<div style="padding:14px 16px 0;display:flex;flex-direction:column;gap:6px;flex:1;min-height:0;overflow:hidden">
+<div style="font-size:15px;font-weight:600;padding:0 6px 4px">Coming up</div>
+<div style="display:flex;justify-content:space-between;align-items:center;background:#ECECE6;border-radius:12px;padding:11px 14px;font-size:14px"><span>Draft reply to Sam</span><span style="font-weight:600">2%</span></div>
+<div style="display:flex;justify-content:space-between;align-items:center;background:#ECECE6;border-radius:12px;padding:11px 14px;font-size:14px"><span>Break down Q4 deck</span><span style="font-weight:600">3%</span></div>
+<div style="display:flex;justify-content:space-between;align-items:center;border:1.5px dashed #C9C9C2;border-radius:12px;padding:10px 14px;font-size:14px;color:#6E6E6A"><span>3 low-priority, waiting for Monday</span><span>Run anyway</span></div>
+</div>
+<div style="padding:14px 16px 30px;display:flex;align-items:center;gap:10px">
+<div style="flex:1;height:64px;border-radius:32px;background:#121212;color:#FAFAF7;display:flex;align-items:center;gap:12px;padding:0 8px 0 24px"><span style="flex:1;font-size:15px;color:#BDBDB6">"I used 65% now"</span><div style="width:50px;height:50px;border-radius:50%;background:#FAFAF7;color:#121212;display:grid;place-items:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg></div></div>
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+<p class="dv-next">Try next: "go with <a class="dv-oid" href="#1a">1a</a> but use the voice sheet from <a class="dv-oid" href="#1b">1b</a>" · "<a class="dv-oid" href="#1c">1c</a>, now show the week and the Mac layout" · "<a class="dv-oid" href="#1b">1b</a> in light mode"</p>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const wave = [10, 18, 28, 14, 32, 22, 36, 16, 26, 12, 30, 20, 14, 8];
+    const work = 'oklch(0.62 0.15 255)', pers = 'oklch(0.8 0.13 75)', health = 'oklch(0.72 0.13 150)';
+    const cells = Array.from({ length: 100 }, (_, i) => {
+      if (i < 38) return { bg: work, ring: 'none' };
+      if (i < 53) return { bg: pers, ring: 'none' };
+      if (i < 62) return { bg: health, ring: 'none' };
+      if (i < 82) return { bg: 'transparent', ring: 'inset 0 0 0 1.5px #C2410C' };
+      return { bg: '#ECECE6', ring: 'none' };
+    });
+    const pw = 'oklch(0.52 0.08 250)', pp = 'oklch(0.76 0.1 75)', ph = 'oklch(0.64 0.08 150)';
+    const cellsPaper = Array.from({ length: 100 }, (_, i) => {
+      if (i < 38) return { bg: pw, ring: 'none' };
+      if (i < 53) return { bg: pp, ring: 'none' };
+      if (i < 62) return { bg: ph, ring: 'none' };
+      if (i < 82) return { bg: 'transparent', ring: 'inset 0 0 0 1.5px #D9481C' };
+      return { bg: '#E2DDD2', ring: 'none' };
+    });
+    const listTop = [
+      { title: 'Finish Q4 budget deck', meta: 'Work · High energy · step 3 of 4', dur: '2h 30', color: pw, w: 100 },
+      { title: 'Team sync', meta: 'Work · 13:00', dur: '1h', color: pw, w: 40 },
+      { title: 'Review contract', meta: 'Work · from Sam\'s email', dur: '55m', color: pw, w: 37 },
+      { title: 'Groceries', meta: 'Personal · Low energy', dur: '45m', color: pp, w: 30 },
+      { title: 'Reply to Sam', meta: 'Work · Draft ready in Gmail', dur: '15m', color: pw, w: 10 },
+      { title: 'Call mum', meta: 'Personal · Low energy', dur: '20m', color: pp, w: 13 },
+      { title: 'Pay Acme invoice · Book dentist', meta: 'Due Fri, found in email', dur: '15m', color: pw, w: 10 }
+    ];
+    const listOver = [
+      { title: 'Plan Lisbon trip', meta: 'Claude suggests Sat', dur: '1h', color: pp, w: 40 },
+      { title: 'Gym', meta: 'Claude suggests Fri 6pm', dur: '40m', color: ph, w: 27 }
+    ];
+    const H = 12.5;
+    const mk = (day, date, w, p, h, opts = {}) => {
+      const t = w + p + h, over = t > 6;
+      const hh = Math.floor(t), mm = Math.round((t - hh) * 60);
+      return { day, date, w: w * H, p: p * H, h: h * H, total: hh + 'h' + (mm ? ' ' + mm : ''),
+        labelColor: over ? '#D9481C' : '#1C1B19', fw: opts.today ? 700 : 500, op: opts.past ? 0.5 : 1 };
+    };
+    const week = [
+      mk('Mon', '28', 4, 1, 1, { past: true }), mk('Tue', '29', 5, 1.5, 0, { past: true }), mk('Wed', '30', 4, 1, 0.7, { past: true }),
+      mk('Thu', '1', 5, 2, 0.67, { today: true }), mk('Fri', '2', 3, 0.5, 0.5), mk('Sat', '3', 0, 1.5, 0.5), mk('Sun', '4', 0, 1, 0)
+    ];
+    return { wave, cells, cellsPaper, listTop, listOver, week };
+  }
+}
+</script>
+</body>
+</html>
