@@ -1,0 +1,46 @@
+# Nightly off-site backup of the Docket database, pulled from the live server.
+# Needs three repository secrets: DOCKET_URL (https://docket-xxxx.onrender.com),
+# DOCKET_TOKEN, and BACKUP_PASSPHRASE (any long string; keep it somewhere safe,
+# it is needed to open the backups). The encrypted file is kept as a workflow
+# artifact for 90 days. Run it by hand from the Actions tab to take a backup now.
+name: Docket backup
+on:
+  schedule:
+    - cron: '30 21 * * *' # 03:00 IST
+  workflow_dispatch:
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download a snapshot
+        env:
+          DOCKET_URL: ${{ secrets.DOCKET_URL }}
+          DOCKET_TOKEN: ${{ secrets.DOCKET_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$DOCKET_URL" && test -n "$DOCKET_TOKEN" || { echo "Set the DOCKET_URL and DOCKET_TOKEN secrets"; exit 1; }
+          curl --fail --silent --show-error --max-time 120 -H "Authorization: Bearer $DOCKET_TOKEN" "$DOCKET_URL/api/backup" -o docket.db
+          curl --fail --silent --show-error --max-time 120 -H "Authorization: Bearer $DOCKET_TOKEN" "$DOCKET_URL/api/export.json" -o docket-export.json
+          ls -la docket.db docket-export.json
+      - name: Check the snapshot opens
+        run: |
+          sudo apt-get install -y -qq sqlite3 >/dev/null
+          sqlite3 docket.db 'PRAGMA integrity_check; SELECT "tasks: " || COUNT(*) FROM tasks;'
+      - name: Encrypt
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          test -n "$BACKUP_PASSPHRASE" || { echo "Set the BACKUP_PASSPHRASE secret"; exit 1; }
+          stamp=$(date -u +%Y%m%d-%H%M)
+          tar czf "docket-$stamp.tgz" docket.db docket-export.json
+          gpg --batch --yes --symmetric --cipher-algo AES256 --passphrase "$BACKUP_PASSPHRASE" -o "docket-$stamp.tgz.gpg" "docket-$stamp.tgz"
+          rm docket.db docket-export.json "docket-$stamp.tgz"
+          echo "FILE=docket-$stamp.tgz.gpg" >> "$GITHUB_ENV"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.FILE }}
+          path: ${{ env.FILE }}
+          retention-days: 90
+          if-no-files-found: error

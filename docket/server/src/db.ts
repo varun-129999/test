@@ -1,8 +1,11 @@
 import { DatabaseSync } from 'node:sqlite';
-import { mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { snapshot } from './backup.js';
 
-const SCHEMA = `
+// Version 1 is the baseline schema. Later versions are migrations in MIGRATIONS below:
+// they only ever add (columns, tables, indexes), so an older snapshot can always be upgraded.
+const SCHEMA_V1 = `
 CREATE TABLE IF NOT EXISTS tasks (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
@@ -131,24 +134,65 @@ CREATE TABLE IF NOT EXISTS meta (
 );
 `;
 
+const MIGRATIONS: ((db: DatabaseSync) => void)[] = [
+  // v1: the baseline. Idempotent, so a database made before versioning upgrades cleanly.
+  db => db.exec(SCHEMA_V1),
+];
+
+export const SCHEMA_VERSION = MIGRATIONS.length;
+
 export type DB = DatabaseSync;
 
-export function openDb(path: string): DB {
-  if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
+export const userVersion = (db: DB) => (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version;
+
+export interface OpenResult { db: DB; created: boolean; migrated_from: number }
+
+export function openDb(path: string): DB { return openDbInfo(path).db; }
+
+/** Opens (or creates) the database and brings its schema up to date. */
+export function openDbInfo(path: string): OpenResult {
+  const memory = path === ':memory:';
+  if (!memory) mkdirSync(dirname(path), { recursive: true });
+  const created = memory || !existsSync(path);
   const db = new DatabaseSync(path);
   db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 3000;');
-  db.exec(SCHEMA);
-  return db;
+  const from = userVersion(db);
+  if (from > SCHEMA_VERSION) {
+    db.close();
+    throw new Error(`Database ${path} is schema version ${from}, newer than this build (${SCHEMA_VERSION}). Deploy a newer Docket or restore an older snapshot.`);
+  }
+  if (from < SCHEMA_VERSION) {
+    // A real upgrade of an existing file: keep a copy first.
+    if (!created && from > 0) snapshot(db, dirname(path) + '/backups', 'pre-migration');
+    for (let v = from; v < SCHEMA_VERSION; v++) {
+      tx(db, () => {
+        MIGRATIONS[v](db);
+        db.exec(`PRAGMA user_version = ${v + 1}`);
+      });
+    }
+  }
+  return { db, created, migrated_from: from };
 }
 
+// Re-entrant transactions: the outermost call opens BEGIN IMMEDIATE, inner calls use
+// savepoints, so store methods can call each other without "cannot start a transaction".
+const depth = new WeakMap<DatabaseSync, number>();
+
 export function tx<T>(db: DB, fn: () => T): T {
-  db.exec('BEGIN IMMEDIATE');
+  const d = depth.get(db) ?? 0;
+  if (d === 0) db.exec('BEGIN IMMEDIATE');
+  else db.exec(`SAVEPOINT sp${d}`);
+  depth.set(db, d + 1);
   try {
     const out = fn();
-    db.exec('COMMIT');
+    if (d === 0) db.exec('COMMIT');
+    else db.exec(`RELEASE sp${d}`);
     return out;
   } catch (e) {
-    db.exec('ROLLBACK');
+    if (d === 0) db.exec('ROLLBACK');
+    else db.exec(`ROLLBACK TO sp${d}; RELEASE sp${d}`);
     throw e;
+  } finally {
+    depth.set(db, d);
   }
 }

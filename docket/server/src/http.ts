@@ -1,7 +1,9 @@
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { timingSafeEqual } from 'node:crypto';
-import { existsSync } from 'node:fs';
+import { existsSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { exportJson, snapshot } from './backup.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { createMcpServer } from './tools.js';
 import { DocketError, type Store } from './store.js';
@@ -11,6 +13,9 @@ export interface HttpOptions {
   token?: string;
   /** Directory with the built web app. */
   webDir?: string;
+  /** Where snapshots are kept; enables the pre-reset snapshot. */
+  backupDir?: string;
+  version?: string;
 }
 
 const safeEqual = (a: string, b: string) => {
@@ -56,8 +61,16 @@ export function createApp(store: Store, opts: HttpOptions = {}) {
   const noSessions = (_req: Request, res: Response) => {
     res.status(405).set('Allow', 'POST').json({ jsonrpc: '2.0', error: { code: -32000, message: 'Method not allowed.' }, id: null });
   };
-  // Unauthenticated liveness check for hosting platforms. Reveals nothing.
-  app.get('/healthz', (_req, res) => { res.json({ ok: true }); });
+  // Unauthenticated health check for hosting platforms: proves the database answers.
+  app.get('/healthz', (_req, res) => {
+    try {
+      store.db.prepare('SELECT 1 FROM settings WHERE id = 1').get();
+      res.json({ ok: true, version: opts.version ?? '0' });
+    } catch (e) {
+      console.error('[docket] healthz failed', e);
+      res.status(503).json({ ok: false });
+    }
+  });
 
   app.post('/mcp', auth, mcp);
   app.post('/mcp/:token', auth, mcp);
@@ -101,7 +114,29 @@ export function createApp(store: Store, opts: HttpOptions = {}) {
   api.post('/finds/:id/skip', h(req => { store.resolveFind(p(req, 'id'), false); }));
 
   api.post('/reviews/:week/dismiss', h(req => { store.dismissReview(p(req, 'week')); }));
-  api.post('/sample', h(() => { store.loadSample(); }));
+
+  // Replaces everything with the sample data. Only with DOCKET_SAMPLE=1 (never in production),
+  // only with an explicit confirmation, and only after a snapshot.
+  api.post('/sample', h(req => {
+    if (!store.flags.sample) throw new DocketError('The sample-data reset is disabled on this server. Start it with DOCKET_SAMPLE=1 to allow it.');
+    if (req.body?.confirm !== 'wipe') throw new DocketError('Send {"confirm":"wipe"} to replace all data with the samples.');
+    if (opts.backupDir) snapshot(store.db, opts.backupDir, 'pre-reset');
+    store.loadSample();
+  }));
+
+  // Backups: a consistent copy of the database file, and everything as JSON.
+  api.get('/backup', (req, res) => {
+    const file = join(tmpdir(), `docket-backup-${process.pid}-${Date.now()}.db`);
+    try {
+      store.db.prepare('VACUUM INTO ?').run(file);
+    } catch (e) {
+      console.error('[docket] backup failed', e);
+      res.status(500).json({ error: 'Backup failed' });
+      return;
+    }
+    res.download(file, `docket-${store.today()}.db`, () => { try { unlinkSync(file); } catch { /* already gone */ } });
+  });
+  api.get('/export.json', h(() => exportJson(store.db)));
 
   // Server-sent events: tells open apps to refetch after any change (including Claude's).
   api.get('/events', (req, res) => {
@@ -111,8 +146,10 @@ export function createApp(store: Store, opts: HttpOptions = {}) {
     let timer: NodeJS.Timeout | undefined;
     const onChange = () => { clearTimeout(timer); timer = setTimeout(() => res.write('event: change\ndata: {}\n\n'), 50); };
     const ping = setInterval(() => res.write(': ping\n\n'), 25000);
+    const onShutdown = () => res.end();
     store.events.on('change', onChange);
-    req.on('close', () => { store.events.off('change', onChange); clearInterval(ping); clearTimeout(timer); });
+    store.events.once('shutdown', onShutdown);
+    req.on('close', () => { store.events.off('change', onChange); store.events.off('shutdown', onShutdown); clearInterval(ping); clearTimeout(timer); });
   });
 
   app.use('/api', api);

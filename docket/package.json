@@ -1,9 +1,12 @@
 {
   "name": "docket",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Voice-first task organiser run through Claude: MCP server + PWA",
-  "workspaces": ["server", "web"],
+  "workspaces": [
+    "server",
+    "web"
+  ],
   "scripts": {
     "build": "npm run build -w web && npm run build -w server",
     "start": "npm run start -w server",

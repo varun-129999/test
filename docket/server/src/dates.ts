@@ -8,7 +8,22 @@ const pad = (n: number) => String(n).padStart(2, '0');
 export const iso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 export const dt = (s: string) => new Date(s + 'T12:00:00');
 export const addDays = (s: string, n: number) => { const d = dt(s); d.setDate(d.getDate() + n); return iso(d); };
-export const isIsoDay = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(dt(s).getTime());
+/** True only for real calendar dates: "2026-09-31" rolls over to 1 Oct in JS, so it is rejected. */
+export const isIsoDay = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(dt(s).getTime()) && iso(dt(s)) === s;
+
+/** Validates a TZ value the way Node applies it: the name must resolve and the offset must match. */
+export function checkTimeZone(tz: string | undefined): { ok: boolean; problem?: string; resolved: string } {
+  const resolved = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  if (!tz) return { ok: true, problem: 'TZ is not set; running on ' + resolved + '. Set TZ to your IANA zone (e.g. Asia/Kolkata).', resolved };
+  try { new Intl.DateTimeFormat('en', { timeZone: tz }); } catch { return { ok: false, problem: `TZ="${tz}" is not a valid IANA time zone name`, resolved }; }
+  const parts = new Intl.DateTimeFormat('en', { timeZone: tz, timeZoneName: 'longOffset' }).formatToParts(new Date());
+  const name = parts.find(p => p.type === 'timeZoneName')?.value ?? 'GMT';
+  const m = /GMT([+-])(\d{2}):?(\d{2})?/.exec(name);
+  const expected = m ? (m[1] === '-' ? -1 : 1) * (+m[2] * 60 + +(m[3] ?? 0)) : 0;
+  const actual = -new Date().getTimezoneOffset();
+  if (expected !== actual) return { ok: false, problem: `TZ="${tz}" is not applied: Node runs at UTC${actual >= 0 ? '+' : '-'}${pad(Math.floor(Math.abs(actual) / 60))}:${pad(Math.abs(actual) % 60)} but ${tz} is ${name}. Use the full IANA name (e.g. Asia/Kolkata, not IST).`, resolved };
+  return { ok: true, resolved };
+}
 
 /** Monday of the week containing `s`. */
 export const weekStart = (s: string) => addDays(s, -((dt(s).getDay() + 6) % 7));

@@ -1,6 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { AREAS, DocketError, ENERGIES, PRIORITIES, type Store } from './store.js';
+import { version } from './version.js';
 
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'YYYY-MM-DD');
 const area = z.enum(AREAS);
@@ -21,7 +22,7 @@ For email, use Claude's own Gmail connector, then record_emails, suggest_tasks o
 type Result = { content: { type: 'text'; text: string }[]; isError?: boolean };
 
 export function createMcpServer(store: Store): McpServer {
-  const server = new McpServer({ name: 'docket', version: '0.1.0' }, { instructions: INSTRUCTIONS });
+  const server = new McpServer({ name: 'docket', version }, { instructions: INSTRUCTIONS });
 
   const run = (tool: string, fn: () => unknown): Result => {
     store.logCall(tool);
@@ -115,7 +116,7 @@ export function createMcpServer(store: Store): McpServer {
   server.registerTool('get_usage', {
     title: 'Get usage', description: 'Self-reported weekly Claude usage, the call-based estimate since the last report, and the budget state.',
     inputSchema: {}, annotations: read,
-  }, () => run('get_usage', () => store.usage()));
+  }, () => run('get_usage', () => ({ ...store.usage(), docket_version: version })));
 
   server.registerTool('set_usage', {
     title: 'Set usage', description: 'Records the owner\'s weekly Claude usage when they tell you ("I\'ve used 65%").',

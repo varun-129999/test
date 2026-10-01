@@ -1,5 +1,6 @@
 # Render Blueprint for Docket (docket/). Deploy with the "Deploy to Render" link in docket/README.md.
-# Render generates DOCKET_TOKEN and asks you for TZ when you create the Blueprint.
+# Render generates DOCKET_TOKEN when you create the Blueprint. The live service may also have
+# been created by hand; if so, set the same env vars on it in the Render dashboard.
 services:
   - type: web
     name: docket
@@ -7,12 +8,19 @@ services:
     dockerfilePath: ./docket/Dockerfile
     dockerContext: ./docket
     plan: starter # a persistent disk needs a paid instance
+    numInstances: 1 # SQLite lives on one disk; never scale this out
     healthCheckPath: /healthz
+    buildFilter:
+      paths:
+        - docket/**
+        - render.yaml
     envVars:
       - key: DOCKET_TOKEN
         generateValue: true
       - key: TZ
-        sync: false # your IANA time zone, e.g. Europe/London or America/New_York
+        value: Asia/Kolkata # your IANA time zone; "today" and the weekly reset use it
+      - key: DOCKET_REQUIRE_DISK
+        value: "1" # refuse to start if /data is not the mounted disk
     disk:
       name: docket-data
       mountPath: /data

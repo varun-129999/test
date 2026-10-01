@@ -9,7 +9,9 @@ COPY web web
 RUN npm run build && npm prune --omit=dev
 
 FROM node:22-slim
-ENV NODE_ENV=production HOST=0.0.0.0 PORT=8787 DOCKET_DB=/data/docket.db TZ=Europe/London
+# Set TZ (e.g. Asia/Kolkata) and DOCKET_TOKEN at run time. DOCKET_REQUIRE_DISK makes the server
+# refuse to start unless /data is a mounted volume, so data never lands on the container layer.
+ENV NODE_ENV=production HOST=0.0.0.0 PORT=8787 DOCKET_DB=/data/docket.db DOCKET_REQUIRE_DISK=1
 WORKDIR /app
 COPY --from=build /app/package.json ./
 COPY --from=build /app/node_modules node_modules

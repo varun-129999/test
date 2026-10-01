@@ -1,4 +1,4 @@
-process.env.TZ = 'Europe/London';
+process.env.TZ ??= 'Asia/Kolkata';
 import { openDb } from '../src/db.js';
 import { Store } from '../src/store.js';
 

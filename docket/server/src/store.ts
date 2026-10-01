@@ -51,18 +51,30 @@ export const CALL_WEIGHTS: Record<string, number> = {
   save_review: 2, record_emails: 2, suggest_tasks: 1,
 };
 
+/** "Open Claude" only ever points at Claude itself, so a leaked token cannot turn it into a phishing link. */
+export function isClaudeUrl(v: string): boolean {
+  try {
+    const u = new URL(v);
+    return u.protocol === 'https:' && /^(.*\.)?(claude\.ai|claude\.com)$/.test(u.hostname);
+  } catch { return false; }
+}
+
 const id = (prefix = '') => prefix + randomBytes(6).toString('base64url').replace(/[-_]/g, '').slice(0, 6).toLowerCase().padEnd(6, '0');
 const nowIso = (d: Date) => d.toISOString();
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
 
 type Row = Record<string, any>;
 
+export interface Flags { sample: boolean }
+
 export class Store {
   readonly events = new EventEmitter();
+  readonly flags: Flags;
   private readonly now: () => Date;
 
-  constructor(readonly db: DB, opts: { now?: () => Date } = {}) {
+  constructor(readonly db: DB, opts: { now?: () => Date; flags?: Partial<Flags> } = {}) {
     this.now = opts.now ?? (() => new Date());
+    this.flags = { sample: false, ...opts.flags };
     this.events.setMaxListeners(100);
   }
 
@@ -86,7 +98,7 @@ export class Store {
       claude_url: p.claude_url !== undefined ? p.claude_url.trim() || 'https://claude.ai/new' : cur.claude_url,
       reset: p.reset !== undefined ? p.reset : cur.reset,
     };
-    if (!/^https:\/\//.test(next.claude_url)) throw new DocketError('claude_url must start with https://');
+    if (!isClaudeUrl(next.claude_url)) throw new DocketError('claude_url must be an https link on claude.ai or claude.com');
     this.db.prepare('UPDATE settings SET capacity_hours = ?, reserve_pct = ?, high_only = ?, claude_url = ?, reset = ? WHERE id = 1')
       .run(next.capacity_hours, next.reserve_pct, next.high_only ? 1 : 0, next.claude_url, next.reset);
     this.changed();
@@ -131,14 +143,16 @@ export class Store {
   /** Self-reported weekly usage. Also calibrates the per-call estimate from the change since the last report. */
   setUsage(usedPct: number) {
     const pct = clamp(Math.round(usedPct), 0, 100);
-    const { key, row } = this.period();
-    const s = this.settings();
-    if (row.updated_at && row.est_calls >= 4 && pct > row.used_pct) {
-      const observed = (pct - row.used_pct) / row.est_calls;
-      const calibrated = clamp(0.7 * s.pct_per_call + 0.3 * observed, 0.05, 5);
-      this.db.prepare('UPDATE settings SET pct_per_call = ? WHERE id = 1').run(Math.round(calibrated * 1000) / 1000);
-    }
-    this.db.prepare('UPDATE usage SET used_pct = ?, updated_at = ?, est_calls = 0 WHERE period_start = ?').run(pct, this.stamp(), key);
+    tx(this.db, () => {
+      const { key, row } = this.period();
+      const s = this.settings();
+      if (row.updated_at && row.est_calls >= 4 && pct > row.used_pct) {
+        const observed = (pct - row.used_pct) / row.est_calls;
+        const calibrated = clamp(0.7 * s.pct_per_call + 0.3 * observed, 0.05, 5);
+        this.db.prepare('UPDATE settings SET pct_per_call = ? WHERE id = 1').run(Math.round(calibrated * 1000) / 1000);
+      }
+      this.db.prepare('UPDATE usage SET used_pct = ?, updated_at = ?, est_calls = 0 WHERE period_start = ?').run(pct, this.stamp(), key);
+    });
     this.changed();
     return this.usage();
   }
@@ -349,23 +363,39 @@ export class Store {
   runHeld(heldId: string): { applied: boolean; request?: PendingRequest } {
     const r = this.db.prepare(`SELECT * FROM held_requests WHERE id = ? AND status = 'held'`).get(heldId) as Row | undefined;
     if (!r) throw new DocketError(`No held request "${heldId}"`);
-    this.db.prepare(`UPDATE held_requests SET status = 'released' WHERE id = ?`).run(heldId);
     if (r.tool && r.args) {
+      // Older holds carry the content Claude already wrote: apply it in one transaction,
+      // so a failure leaves the hold (and the content) in place.
       const a = JSON.parse(r.args);
-      const bypass = { request_id: this.enqueue({ label: r.label, prompt: r.prompt, task_id: r.task_id, priority: r.priority, override: true }).id };
       try {
-        if (r.tool === 'set_steps') this.setSteps(a.id, a.steps, bypass);
-        else if (r.tool === 'attach_draft') this.attachDraft(a.id, a.text, a.gmail_draft_id, bypass);
-        else if (r.tool === 'save_review') this.saveReview(a.week_start, a.text, bypass);
-      } finally {
-        this.db.prepare(`UPDATE pending_requests SET status = 'done', completed_at = ? WHERE id = ?`).run(this.stamp(), bypass.request_id);
+        tx(this.db, () => {
+          this.db.prepare(`UPDATE held_requests SET status = 'released' WHERE id = ?`).run(heldId);
+          const req = this.enqueue({ label: r.label, prompt: r.prompt, task_id: r.task_id, priority: r.priority, override: true });
+          const bypass = { request_id: req.id };
+          if (r.tool === 'set_steps') this.setSteps(a.id, a.steps, bypass);
+          else if (r.tool === 'attach_draft') this.attachDraft(a.id, a.text, a.gmail_draft_id, bypass);
+          else if (r.tool === 'save_review') this.saveReview(a.week_start, a.text, bypass);
+          else throw new DocketError(`Don't know how to apply a held "${r.tool}" request`);
+          this.db.prepare(`UPDATE pending_requests SET status = 'done', completed_at = ? WHERE id = ?`).run(this.stamp(), req.id);
+          this.setMeta({ last_cmd: r.label, last_reply: 'Done. Applied what Claude had already written.' });
+        });
+      } catch (e) {
+        if (e instanceof DocketError && /^No task/.test(e.message)) {
+          this.db.prepare(`UPDATE held_requests SET status = 'dropped' WHERE id = ?`).run(heldId);
+          this.changed();
+          throw new DocketError('The task this request was for no longer exists, so the request was removed.');
+        }
+        throw e;
       }
-      this.setMeta({ last_cmd: r.label, last_reply: 'Done. Applied what Claude had already written.' });
       this.changed();
       return { applied: true };
     }
-    const req = this.enqueue({ label: r.label, prompt: r.prompt, task_id: r.task_id, priority: r.priority, override: true });
-    this.setMeta({ last_cmd: r.label, last_reply: 'Released. Claude runs it next time you open the chat.' });
+    const req = tx(this.db, () => {
+      this.db.prepare(`UPDATE held_requests SET status = 'released' WHERE id = ?`).run(heldId);
+      const q = this.enqueue({ label: r.label, prompt: r.prompt, task_id: r.task_id, priority: r.priority, override: true });
+      this.setMeta({ last_cmd: r.label, last_reply: 'Released. Claude runs it next time you open the chat.' });
+      return q;
+    });
     this.changed();
     return { applied: false, request: req };
   }
@@ -481,9 +511,10 @@ export class Store {
   resolveFind(findId: string, add: boolean) {
     const f = this.finds().find(x => x.id === findId);
     if (!f) throw new DocketError(`No suggestion "${findId}"`);
-    this.db.prepare('UPDATE finds SET status = ? WHERE id = ?').run(add ? 'added' : 'skipped', findId);
-    const t = this.today();
-    const task = add ? this.addTask({ title: f.title, area: f.area, project: f.project, est: f.est, priority: f.priority, energy: f.energy, due: f.due, source: 'gmail', day: t }) : null;
+    const task = tx(this.db, () => {
+      this.db.prepare('UPDATE finds SET status = ? WHERE id = ?').run(add ? 'added' : 'skipped', findId);
+      return add ? this.addTask({ title: f.title, area: f.area, project: f.project, est: f.est, priority: f.priority, energy: f.energy, due: f.due, source: 'gmail', day: this.today() }) : null;
+    });
     this.changed();
     return task;
   }
@@ -495,7 +526,7 @@ export class Store {
     return r ? r.value : null;
   }
 
-  private setMeta(kv: Record<string, string>) {
+  setMeta(kv: Record<string, string>) {
     const st = this.db.prepare('INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
     for (const [k, v] of Object.entries(kv)) st.run(k, v);
   }
@@ -520,17 +551,24 @@ export class Store {
     const dayTasks = all.filter(t => t.day === d);
     const open = dayTasks.filter(t => !t.done);
     const openMin = open.reduce((a, t) => a + t.est, 0);
+    // Capacity is about work still to do: today and future days count open minutes;
+    // past days are history and never count as "over".
     const week = days.map(x => {
       const items = all.filter(t => t.day === x);
-      const planned = items.reduce((a, t) => a + t.est, 0);
-      return { date: x, label: fmtDay(x), planned_min: planned, free_min: Math.max(0, capMin - planned), over_min: Math.max(0, planned - capMin), past: x < today, tasks: items.map(compact) };
+      const past = x < today;
+      const doneMin = items.filter(t => t.done).reduce((a, t) => a + t.est, 0);
+      const openM = items.filter(t => !t.done).reduce((a, t) => a + t.est, 0);
+      return {
+        date: x, label: fmtDay(x), planned_min: doneMin + openM, done_min: doneMin, open_min: openM,
+        free_min: past ? 0 : Math.max(0, capMin - openM), over_min: past ? 0 : Math.max(0, openM - capMin), past, tasks: items.map(compact),
+      };
     });
     const overdue = this.listTasks({ to: addDays(today, -1) }).map(compact);
     return {
       today, weekday: DOWL[dt(today).getDay()],
       capacity_hours: s.capacity_hours,
       day: { date: d, open_min: openMin, capacity_min: capMin, over_min: Math.max(0, openMin - capMin), open: open.map(compact), done: dayTasks.filter(t => t.done).map(t => t.title) },
-      week: { number: isoWeek(d), start: days[0], end: days[6], planned_min: week.reduce((a, x) => a + x.planned_min, 0), days_over: week.filter(x => x.over_min > 0).length, days: week },
+      week: { number: isoWeek(d), start: days[0], end: days[6], planned_min: week.reduce((a, x) => a + x.planned_min, 0), days_over: week.filter(x => !x.past && x.over_min > 0).length, days: week },
       overdue,
       usage: this.usage(),
       pending_moves: this.pendingMoves(),
@@ -559,6 +597,7 @@ export class Store {
       reply: this.meta('last_reply') ?? 'Tell me what to add, move or plan. Tap the mic or type.',
       reply_at: this.meta('reply_at'),
       inbox_checked_at: this.meta('inbox_checked_at'),
+      flags: this.flags,
     };
   }
 
@@ -567,7 +606,12 @@ export class Store {
   loadSample() {
     tx(this.db, () => {
       for (const t of ['steps', 'moves', 'tasks', 'held_requests', 'pending_requests', 'emails', 'finds', 'reviews', 'meta']) this.db.prepare(`DELETE FROM ${t}`).run();
+      this.loadSampleRows();
     });
+    this.changed();
+  }
+
+  private loadSampleRows() {
     const t = this.today(), n = (k: number) => addDays(t, k);
     const add = (o: Partial<TaskInput> & { title: string; steps?: [string, boolean][]; done?: boolean }) => {
       const task = this.addTask({ area: 'Work', est: 30, priority: 'med', energy: 'low', day: t, ...o });
@@ -600,6 +644,5 @@ export class Store {
       { from: 'Bright Dental', subject: 'Your check-up is overdue', snippet: 'It has been 14 months since your last visit. Book online any time.', when: 'Mon' },
       { from: 'The Weekly Brief', subject: '10 links worth your time', snippet: 'This week: product strategy, a better standup, and more.', when: 'Mon' },
     ]);
-    this.changed();
   }
 }
