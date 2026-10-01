@@ -1,4 +1,5 @@
-import express, { type NextFunction, type Request, type Response } from 'express';
+import express, { type NextFunction, type Request, type RequestHandler, type Response } from 'express';
+import { z } from 'zod';
 import { timingSafeEqual } from 'node:crypto';
 import { existsSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
@@ -7,6 +8,8 @@ import { exportJson, snapshot } from './backup.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { createMcpServer } from './tools.js';
 import { DocketError, type Store } from './store.js';
+import * as S from './schemas.js';
+import { issuesText, norm } from './schemas.js';
 
 export interface HttpOptions {
   /** Shared secret for the API and remote MCP. Empty disables auth (local use only). */
@@ -26,7 +29,8 @@ const safeEqual = (a: string, b: string) => {
 export function createApp(store: Store, opts: HttpOptions = {}) {
   const app = express();
   app.disable('x-powered-by');
-  app.use(express.json({ limit: '1mb' }));
+  // Bodies are parsed after auth, so nobody without the token gets a megabyte parsed.
+  const json = express.json({ limit: '1mb' });
 
   // Without a token the server is for local use only: reject other Host headers
   // so a web page can't reach it through DNS rebinding.
@@ -35,12 +39,13 @@ export function createApp(store: Store, opts: HttpOptions = {}) {
     app.use((req, res, next) => (local.has(req.hostname) ? next() : res.status(403).json({ error: 'Set DOCKET_TOKEN to serve non-local hosts' })));
   }
 
-  // Accepts "Authorization: Bearer <token>", "?token=<token>", or a /mcp/<token> path,
-  // because Claude's custom-connector form only takes a URL.
-  const auth = (req: Request, res: Response, next: NextFunction) => {
+  // "Authorization: Bearer <token>" everywhere. The URL forms (?token=, /mcp/<token>) only
+  // where a header can't be set: Claude's connector form takes a URL, and EventSource can't
+  // send headers. Anywhere else a token in the URL would end up in logs and caches.
+  const auth = (allowUrl: boolean) => (req: Request, res: Response, next: NextFunction) => {
     if (!opts.token) return next();
     const header = req.get('authorization')?.replace(/^Bearer\s+/i, '') ?? '';
-    const given = header || String(req.query.token ?? '') || String(req.params.token ?? '');
+    const given = header || (allowUrl ? String(req.query.token ?? '') || String(req.params.token ?? '') : '');
     if (given && safeEqual(given, opts.token)) return next();
     res.status(401).json({ error: 'Unauthorized' });
   };
@@ -54,7 +59,7 @@ export function createApp(store: Store, opts: HttpOptions = {}) {
       await server.connect(transport);
       await transport.handleRequest(req, res, req.body);
     } catch (e) {
-      console.error('MCP error', e);
+      console.error('[docket] MCP error', e);
       if (!res.headersSent) res.status(500).json({ jsonrpc: '2.0', error: { code: -32603, message: 'Internal server error' }, id: null });
     }
   };
@@ -72,43 +77,71 @@ export function createApp(store: Store, opts: HttpOptions = {}) {
     }
   });
 
-  app.post('/mcp', auth, mcp);
-  app.post('/mcp/:token', auth, mcp);
-  app.get(['/mcp', '/mcp/:token'], auth, noSessions);
-  app.delete(['/mcp', '/mcp/:token'], auth, noSessions);
+  app.post(['/mcp', '/mcp/:token'], auth(true), json, mcp);
+  app.get(['/mcp', '/mcp/:token'], auth(true), noSessions);
+  app.delete(['/mcp', '/mcp/:token'], auth(true), noSessions);
 
   // ---------- REST API for the web app ----------
   const api = express.Router();
-  api.use(auth);
-  const h = (fn: (req: Request) => unknown) => (req: Request, res: Response) => {
-    try {
-      const out = fn(req);
-      res.json(out ?? { ok: true });
-    } catch (e) {
-      if (e instanceof DocketError) res.status(400).json({ error: e.message });
-      else { console.error(e); res.status(500).json({ error: 'Server error' }); }
-    }
-  };
+  api.use((req, res, next) => auth(req.method === 'GET' && req.path === '/events')(req, res, next));
+  api.use(json);
+
+  /**
+   * A route: validates the body with the shared schema (400 naming the bad fields), normalises
+   * enum spellings, and turns DocketErrors into 400s. Handlers may be async.
+   */
+  function h(fn: (req: Request) => unknown): RequestHandler;
+  function h<T extends z.ZodType>(schema: T, fn: (req: Request, body: ReturnType<typeof norm<z.output<T> & object>>) => unknown): RequestHandler;
+  function h(a: z.ZodType | ((req: Request) => unknown), b?: (req: Request, body: any) => unknown): RequestHandler {
+    const schema = typeof a === 'function' ? null : a;
+    const fn = (typeof a === 'function' ? a : b)!;
+    return async (req, res) => {
+      try {
+        let body: unknown;
+        if (schema) {
+          const r = schema.safeParse(req.body ?? {});
+          if (!r.success) { res.status(400).json({ error: issuesText(r.error) }); return; }
+          body = r.data && typeof r.data === 'object' && !Array.isArray(r.data) ? norm(r.data) : r.data;
+        }
+        const out = await fn(req, body);
+        res.json(out ?? { ok: true });
+      } catch (e) {
+        if (e instanceof DocketError) res.status(400).json({ error: e.message });
+        else { console.error('[docket] api failed', req.method, req.path, e); res.status(500).json({ error: 'Server error' }); }
+      }
+    };
+  }
   const p = (req: Request, k: string) => String(req.params[k]);
+  const idx = (req: Request) => Number(req.params.idx);
 
   api.get('/health', h(() => ({ ok: true })));
   api.get('/state', h(() => store.state()));
   api.get('/overview', h(req => store.overview(req.query.day ? String(req.query.day) : undefined)));
 
-  api.post('/tasks', h(req => store.addTask(req.body)));
-  api.patch('/tasks/:id', h(req => store.updateTask(p(req, 'id'), req.body)));
+  api.post('/tasks', h(S.TaskInput, (_req, b) => store.addTask(b)));
+  api.patch('/tasks/:id', h(S.TaskPatch, (req, b) => store.updateTask(p(req, 'id'), b)));
   api.delete('/tasks/:id', h(req => { store.deleteTask(p(req, 'id')); }));
-  api.post('/tasks/:id/steps/:idx/toggle', h(req => store.toggleStep(p(req, 'id'), Number(req.params.idx))));
+  api.put('/tasks/:id/steps', h(S.SetSteps.pick({ steps: true }), (req, b) => store.setSteps(p(req, 'id'), b.steps)));
+  api.post('/tasks/:id/steps', h(S.AddSteps.omit({ id: true }), (req, b) => store.addSteps(p(req, 'id'), b.steps, b.at)));
+  api.patch('/tasks/:id/steps/:idx', h(S.StepDone, (req, b) => store.setStep(p(req, 'id'), idx(req), b.done)));
+  api.post('/tasks/:id/steps/:idx/toggle', h(req => store.toggleStep(p(req, 'id'), idx(req))));
 
-  api.post('/moves/:id/resolve', h(req => store.resolveMove(p(req, 'id'), !!req.body?.approve)));
+  api.post('/moves/resolve-all', h(S.Approve, (_req, b) => store.resolveMoves({ all: true }, b.approve)));
+  api.post('/moves/:id/resolve', h(S.Approve, (req, b) => store.resolveMove(p(req, 'id'), b.approve)));
 
-  api.put('/usage', h(req => store.setUsage(Number(req.body?.used_pct))));
-  api.patch('/settings', h(req => store.setSettings(req.body ?? {})));
+  api.put('/usage', h(S.SetUsage, (_req, b) => store.setUsage(b.used_pct, { resets_at: b.resets_at, source: b.source ?? 'owner' })));
+  api.patch('/settings', h(S.SetSettings, (_req, b) => store.setSettings(b)));
 
-  api.post('/requests', h(req => store.queueRequest(req.body ?? {})));
+  api.post('/requests', h(S.QueueRequest, (_req, b) => store.queueRequest(b)));
+  api.post('/requests/seen', h(S.Seen, (_req, b) => store.markSeen(b.ids)));
   api.delete('/requests/:id', h(req => { store.cancelRequest(p(req, 'id')); }));
+  api.post('/held/queue-all', h(() => store.queueAllHeld()));
   api.post('/held/:id/run', h(req => store.runHeld(p(req, 'id'))));
   api.delete('/held/:id', h(req => { store.dropHeld(p(req, 'id')); }));
+  api.post('/reset-notice/dismiss', h(() => { store.dismissResetNotice(); }));
+
+  api.put('/week-plan', h(S.SetWeekPlan, (_req, b) => store.setWeekPlan(b.week_start, b.text)));
+  api.delete('/week-plan/:week', h(req => { store.deleteWeekPlan(p(req, 'week')); }));
 
   api.post('/finds/:id/add', h(req => store.resolveFind(p(req, 'id'), true)));
   api.post('/finds/:id/skip', h(req => { store.resolveFind(p(req, 'id'), false); }));
@@ -152,6 +185,7 @@ export function createApp(store: Store, opts: HttpOptions = {}) {
     req.on('close', () => { store.events.off('change', onChange); store.events.off('shutdown', onShutdown); clearInterval(ping); clearTimeout(timer); });
   });
 
+  api.use((_req, res) => { res.status(404).json({ error: 'Not found' }); });
   app.use('/api', api);
 
   // ---------- web app ----------
@@ -162,6 +196,16 @@ export function createApp(store: Store, opts: HttpOptions = {}) {
     }));
     app.get(/^\/(?!api\/|mcp).*/, (_req, res) => res.sendFile(join(webDir, 'index.html')));
   }
+
+  // Last stop for errors from the body parser and anything unexpected: always JSON, never a stack.
+  app.use((err: { type?: string; status?: number }, req: Request, res: Response, next: NextFunction) => {
+    if (res.headersSent) return next(err);
+    if (err?.type === 'entity.parse.failed') return void res.status(400).json({ error: 'Invalid JSON' });
+    if (err?.type === 'entity.too.large') return void res.status(413).json({ error: 'Body too large' });
+    const status = typeof err?.status === 'number' && err.status >= 400 && err.status < 500 ? err.status : 500;
+    if (status === 500) console.error('[docket] request failed', req.method, req.path, err);
+    res.status(status).json({ error: status === 500 ? 'Server error' : 'Bad request' });
+  });
 
   return app;
 }

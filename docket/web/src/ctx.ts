@@ -1,5 +1,6 @@
 import { createContext, useContext } from 'react';
-import type { Area, Priority, State, Task } from './types';
+import type { AskSpec } from './prompts';
+import type { Area, PendingRequest, Priority, State, Task, TaskInput, TaskPatch } from './types';
 
 export const AREA: Record<Area, { c: string; on: string }> = {
   Work: { c: 'var(--work)', on: 'var(--on-work)' },
@@ -10,25 +11,52 @@ export const AREAS: Area[] = ['Work', 'Personal', 'Health'];
 export const RANK: Record<Priority, number> = { high: 0, med: 1, low: 2 };
 
 export type Screen = 'today' | 'week' | 'inbox' | 'usage';
+export const SCREENS: Screen[] = ['today', 'week', 'inbox', 'usage'];
+export interface Route { screen: Screen; week?: string }
 
-export interface AskOpts { label: string; priority?: Priority; taskId?: string }
+/** "#week/2026-10-05" → { screen: 'week', week: '2026-10-05' }. Anything unknown is Today. */
+export function parseRoute(hash: string): Route {
+  const [h, arg] = hash.replace(/^#/, '').split('/');
+  const screen = (SCREENS as string[]).includes(h) ? (h as Screen) : 'today';
+  return screen === 'week' && arg && /^\d{4}-\d{2}-\d{2}$/.test(arg) ? { screen, week: arg } : { screen };
+}
+
+/** A toast action: a plain button, or the "Open Claude" link for the current queue. */
+export type ToastAction = { label: string; run: () => void } | 'open-claude';
+export interface NotifyOpts { kind?: 'info' | 'error'; action?: ToastAction }
 
 export interface Ctx {
   s: State;
   wide: boolean;
-  screen: Screen;
-  go: (s: Screen) => void;
-  /** Runs a REST call, then refreshes state. */
-  act: (method: string, path: string, body?: unknown) => Promise<void>;
+  route: Route;
+  /** Ticks every minute so "2h ago" and countdowns stay current. */
+  now: number;
+  go: (s: Screen, arg?: string) => void;
+  /** Runs a REST call, shows any error, then refreshes state. Resolves true on success. */
+  act: (method: string, path: string, body?: unknown) => Promise<boolean>;
+  /** Like act, but resolves with the response (undefined on error). */
+  call: <T>(method: string, path: string, body?: unknown) => Promise<T | undefined>;
   /** Queues a request for Claude (or holds it at the reserve). */
-  ask: (prompt: string, o: AskOpts) => Promise<void>;
-  patchTask: (t: Task, p: Partial<Task>) => Promise<void>;
-  openSheet: () => void;
-  flash: (msg: string) => void;
+  ask: (q: AskSpec) => Promise<void>;
+  /** Updates a task, showing the change at once and reconciling with the server's answer. */
+  patchTask: (t: Task, p: TaskPatch) => Promise<boolean>;
+  addTask: (t: TaskInput, o?: { quiet?: boolean }) => Promise<Task | undefined>;
+  /** Changes the local copy at once (before the server answers). */
+  optimistic: (fn: (s: State) => State) => void;
+  openSheet: (o?: { recent?: boolean }) => void;
+  /** The phone's hero mic: opens the sheet, focuses the composer and starts listening, all in the tap. */
+  mic: () => void;
+  notify: (msg: string, o?: NotifyOpts) => void;
+  /** Client-side search, shared by Today and Week. */
+  q: string;
+  setQ: (q: string) => void;
+  signOut: () => void;
 }
 
 export const DocketCtx = createContext<Ctx | null>(null);
 export const useDocket = () => useContext(DocketCtx)!;
+
+const sum = (ts: Task[]) => ts.reduce((a, x) => a + x.est, 0);
 
 /** Derived numbers shared by several screens. */
 export function derive(s: State) {
@@ -36,8 +64,50 @@ export function derive(s: State) {
   const capMin = s.settings.capacity_hours * 60;
   const todays = s.tasks.filter(x => x.day === t);
   const open = todays.filter(x => !x.done).sort((a, b) => RANK[a.priority] - RANK[b.priority]);
-  const openMin = open.reduce((a, x) => a + x.est, 0);
-  const used = s.usage.estimated_used_pct;
-  const left = 100 - used;
-  return { t, capMin, todays, open, openMin, overMin: Math.max(0, openMin - capMin), used, left };
+  const openMin = sum(open);
+  // Open tasks from earlier days. They stay out of today's capacity until the owner moves them.
+  const overdue = s.tasks.filter(x => !x.done && x.day < t).sort((a, b) => RANK[a.priority] - RANK[b.priority] || a.day.localeCompare(b.day));
+  // The headline is what the owner reported; the estimate (reported plus Docket calls since) is shown beside it.
+  const used = s.usage.used_pct, left = 100 - used;
+  const est = s.usage.est_pct, estLeft = 100 - est;
+  return { t, capMin, todays, open, openMin, overMin: Math.max(0, openMin - capMin), overdue, used, left, est, estLeft };
 }
+
+/**
+ * One day's load. Over capacity counts open tasks only, and only for today and later:
+ * a day mostly done is not "over", and nothing can be done about past days.
+ */
+export function dayLoad(s: State, day: string) {
+  const its = s.tasks.filter(x => x.day === day);
+  const planned = sum(its), open = sum(its.filter(x => !x.done));
+  const over = day >= s.today ? Math.max(0, open - s.settings.capacity_hours * 60) : 0;
+  return { its, planned, open, done: planned - open, over };
+}
+
+/** Tasks whose title, project or notes contain every word of the query. */
+export function search(tasks: Task[], q: string): Task[] {
+  const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return [];
+  return tasks
+    .filter(x => { const hay = [x.title, x.project, x.notes].filter(Boolean).join(' ').toLowerCase(); return words.every(w => hay.includes(w)); })
+    .sort((a, b) => Number(a.done) - Number(b.done) || a.day.localeCompare(b.day) || RANK[a.priority] - RANK[b.priority]);
+}
+
+/**
+ * The requests Claude finished (any outcome). `recent` also holds rows the owner removed and
+ * rows the pickup rule held (status cancelled); those are not Claude's work.
+ */
+export const finished = (rs: PendingRequest[]) => rs.filter(r => r.status === 'done');
+
+/** Only http(s) links become hrefs, so stored text can never become a javascript: link. */
+export const safeUrl = (u: string | null | undefined) => (u && /^https?:\/\//i.test(u.trim()) ? u.trim() : null);
+
+export const isStandalone = () => {
+  try { return (navigator as any).standalone === true || matchMedia('(display-mode: standalone)').matches; } catch { return false; }
+};
+
+const AREA_KEY = 'docket-area';
+export const lastArea = (): Area => {
+  try { const a = localStorage.getItem(AREA_KEY) as Area | null; return a && AREAS.includes(a) ? a : 'Work'; } catch { return 'Work'; }
+};
+export const rememberArea = (a: Area) => { try { localStorage.setItem(AREA_KEY, a); } catch { /* private mode */ } };

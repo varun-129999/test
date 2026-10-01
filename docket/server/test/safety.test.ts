@@ -45,6 +45,7 @@ test('a pre-versioning database upgrades in place and keeps its rows', () => {
   assert.equal(userVersion(second.db), SCHEMA_VERSION);
   assert.equal((second.db.prepare('SELECT title FROM tasks').get() as { title: string }).title, 'Keep me');
   second.db.close();
+  assert.ok(readdirSync(join(d, 'backups')).some(f => f.endsWith('-pre-migration.db')), 'a copy is kept before the upgrade, also from version 0');
   // A database from the future is refused, not silently used.
   const future = new DatabaseSync(path);
   future.exec(`PRAGMA user_version = ${SCHEMA_VERSION + 5}`);
@@ -65,14 +66,19 @@ test('transactions nest: an inner failure rolls back only the inner work', () =>
   assert.equal(store.listTasks().length, 2);
 });
 
-test('Run anyway keeps the hold when applying fails, and drops it when the task is gone', () => {
+test('Run anyway applies a legacy hold that carries content, and drops it when the task is gone', () => {
   const { store } = makeStore();
-  const low = store.addTask({ ...task, priority: 'low' });
-  store.setUsage(90);
-  assert.throws(() => store.setSteps(low.id, ['a', 'b']));
-  const [held] = store.heldRequests();
-  store.deleteTask(low.id);
-  assert.throws(() => store.runHeld(held.id), /no longer exists/);
+  const legacy = (taskId: string, hid: string) => store.db.prepare(`INSERT INTO held_requests (id, label, prompt, task_id, priority, tool, args, created_at, status)
+    VALUES (?, 'Break down: Task', 'Break down', ?, 'low', 'set_steps', ?, 'x', 'held')`).run(hid, taskId, JSON.stringify({ id: taskId, steps: ['a', 'b'] }));
+  const kept = store.addTask({ ...task, priority: 'low' });
+  legacy(kept.id, 'h1');
+  assert.deepEqual(store.runHeld('h1'), { applied: true });
+  assert.deepEqual(store.getTask(kept.id).steps.map(s => s.text), ['a', 'b']);
+  assert.equal(store.recentRequests()[0].outcome, 'done');
+  const gone = store.addTask({ ...task, priority: 'low' });
+  legacy(gone.id, 'h2');
+  store.deleteTask(gone.id);
+  assert.throws(() => store.runHeld('h2'), /no longer exists/);
   assert.equal(store.heldRequests().length, 0);
   assert.equal(store.pendingRequests().length, 0, 'no stray override request');
 });

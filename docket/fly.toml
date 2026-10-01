@@ -3,12 +3,13 @@
 #   fly secrets set DOCKET_TOKEN=$(openssl rand -hex 32)
 #   fly deploy
 app = "docket-example"
-primary_region = "lhr"
+primary_region = "bom"
 
 [build]
 
 [env]
-  TZ = "Europe/London"
+  TZ = "Asia/Kolkata"
+  DOCKET_REQUIRE_DISK = "1"
 
 [mounts]
   source = "docket_data"

@@ -38,7 +38,7 @@ jobs:
           gpg --batch --yes --symmetric --cipher-algo AES256 --passphrase "$BACKUP_PASSPHRASE" -o "docket-$stamp.tgz.gpg" "docket-$stamp.tgz"
           rm docket.db docket-export.json "docket-$stamp.tgz"
           echo "FILE=docket-$stamp.tgz.gpg" >> "$GITHUB_ENV"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: ${{ env.FILE }}
           path: ${{ env.FILE }}

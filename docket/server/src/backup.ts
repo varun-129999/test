@@ -55,7 +55,7 @@ export function prune(dir: string, now = new Date()): string[] {
   return removed;
 }
 
-const TABLES = ['tasks', 'steps', 'moves', 'held_requests', 'pending_requests', 'usage', 'call_log', 'settings', 'reviews', 'emails', 'finds', 'meta'];
+const TABLES = ['tasks', 'steps', 'moves', 'held_requests', 'pending_requests', 'usage', 'call_log', 'settings', 'reviews', 'week_plans', 'emails', 'finds', 'meta'];
 
 /** Every table as plain JSON, for a human-readable backup or a move to another store. */
 export function exportJson(db: DatabaseSync) {

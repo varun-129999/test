@@ -1,19 +1,19 @@
 import { useDocket } from '../ctx';
 import { ago, fmtDay, fmtDur } from '../format';
-import { P } from '../prompts';
+import { Q } from '../prompts';
 
 export function Inbox() {
-  const { s, ask, act } = useDocket();
+  const { s, ask, act, now } = useDocket();
   return (
     <>
       <div className="eyebrow">From Gmail</div>
       <h1 className="display">Inbox</h1>
       <div className="lead">
         {s.emails.length
-          ? `Emails Claude read with your Gmail connector, checked ${ago(s.inbox_checked_at)}. Docket never connects to Gmail itself.`
+          ? `Emails Claude read with your Gmail connector, checked ${ago(s.inbox_checked_at, now)}. Docket never connects to Gmail itself.`
           : 'Nothing here yet. Tap Find tasks and deadlines, then run it in Claude with the Gmail connector turned on.'}
       </div>
-      <button className="btn ink big" style={{ marginTop: 16 }} onClick={() => ask(P.scanGmail, { label: 'Find tasks in Gmail', priority: 'high' })}>Find tasks and deadlines</button>
+      <button className="btn ink big claude" style={{ marginTop: 16 }} onClick={() => ask(Q.scanGmail())}>Find tasks and deadlines</button>
       {s.finds.length > 0 && (
         <div className="card finds">
           <div className="claude-label"><span className="dot" />Claude found</div>

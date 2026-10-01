@@ -134,9 +134,39 @@ CREATE TABLE IF NOT EXISTS meta (
 );
 `;
 
+/** ALTER TABLE ADD COLUMN unless it is already there, so a migration can be re-run safely. */
+function addColumn(db: DatabaseSync, table: string, def: string) {
+  const name = def.split(' ')[0];
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  if (!cols.some(c => c.name === name)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${def}`);
+}
+
 const MIGRATIONS: ((db: DatabaseSync) => void)[] = [
   // v1: the baseline. Idempotent, so a database made before versioning upgrades cleanly.
   db => db.exec(SCHEMA_V1),
+  // v2: notes, links and results on tasks; outcomes and read state on requests; where a
+  // usage figure came from; weekly plans.
+  db => {
+    for (const [table, col] of [
+      ['tasks', 'notes TEXT'], ['tasks', 'link TEXT'], ['tasks', 'completed_at TEXT'], ['tasks', 'result TEXT'],
+      ['tasks', 'result_url TEXT'], ['tasks', 'result_at TEXT'], ['pending_requests', 'outcome TEXT'],
+      ['pending_requests', 'detail TEXT'], ['pending_requests', 'seen INTEGER NOT NULL DEFAULT 0'], ['usage', 'source TEXT'],
+    ]) addColumn(db, table, col);
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS pending_requests_status ON pending_requests(status, created_at);
+      CREATE INDEX IF NOT EXISTS held_requests_status ON held_requests(status, created_at);
+      CREATE INDEX IF NOT EXISTS tasks_done_day ON tasks(done, day);
+      CREATE TABLE IF NOT EXISTS week_plans (
+        week_start TEXT PRIMARY KEY,
+        text TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      -- Requests finished before this version are old news, not "Claude finished N things";
+      -- a done task's last edit is the best guess at when it was completed.
+      UPDATE pending_requests SET seen = 1 WHERE status != 'pending';
+      UPDATE tasks SET completed_at = updated_at WHERE done = 1 AND completed_at IS NULL;
+    `);
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
@@ -162,8 +192,9 @@ export function openDbInfo(path: string): OpenResult {
     throw new Error(`Database ${path} is schema version ${from}, newer than this build (${SCHEMA_VERSION}). Deploy a newer Docket or restore an older snapshot.`);
   }
   if (from < SCHEMA_VERSION) {
-    // A real upgrade of an existing file: keep a copy first.
-    if (!created && from > 0) snapshot(db, dirname(path) + '/backups', 'pre-migration');
+    // A real upgrade of an existing file: keep a copy first. A file at version 0 is one the
+    // pre-versioning build wrote, so it counts too.
+    if (!created) snapshot(db, dirname(path) + '/backups', 'pre-migration');
     for (let v = from; v < SCHEMA_VERSION; v++) {
       tx(db, () => {
         MIGRATIONS[v](db);

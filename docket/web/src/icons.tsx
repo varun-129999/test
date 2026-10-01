@@ -6,3 +6,12 @@ export function MicIcon({ size = 22, stroke = 2.2 }: { size?: number; stroke?: n
     </svg>
   );
 }
+
+export function SearchIcon({ size = 15 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" aria-hidden="true">
+      <circle cx="11" cy="11" r="6.5" />
+      <path d="M16 16l4.5 4.5" />
+    </svg>
+  );
+}

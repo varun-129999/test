@@ -55,3 +55,30 @@ export function periodStart(now: Date, spec = 'Mon 09:00'): Date {
   if (d.getTime() > now.getTime()) d.setDate(d.getDate() - 7);
   return d;
 }
+
+/** Local time with its offset, e.g. "2026-10-01T18:05:00+05:30", so Claude can tell morning from evening. */
+export const localIso = (d: Date) => {
+  const off = -d.getTimezoneOffset(), a = Math.abs(off);
+  return `${iso(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}${off >= 0 ? '+' : '-'}${pad(Math.floor(a / 60))}:${pad(a % 60)}`;
+};
+
+/** The zone name: TZ as set when it is valid (ICU reports Asia/Kolkata as "Asia/Calcutta"), else what Intl resolved. */
+export function tzName(): string {
+  const env = process.env.TZ;
+  if (env) { try { new Intl.DateTimeFormat('en', { timeZone: env }); return env; } catch { /* not a zone name */ } }
+  return Intl.DateTimeFormat().resolvedOptions().timeZone;
+}
+
+/** "Mon 5 Oct 09:00" in local time. */
+export const fmtMoment = (d: Date) => `${fmtDay(iso(d))} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
+/** "just now", "5m ago", "2h ago", "3d ago". */
+export function ago(at: string | null | undefined, now: Date): string | null {
+  const t = at ? Date.parse(at) : NaN;
+  if (!Number.isFinite(t)) return null;
+  const min = Math.max(0, Math.floor((now.getTime() - t) / 60000));
+  if (min < 1) return 'just now';
+  if (min < 60) return `${min}m ago`;
+  if (min < 48 * 60) return `${Math.floor(min / 60)}h ago`;
+  return `${Math.floor(min / 1440)}d ago`;
+}

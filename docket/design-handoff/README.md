@@ -1,5 +1,7 @@
 # Handoff: Docket, a voice-first task organiser run through Claude
 
+> Historical: this is the original design hand-off the first build was made from. Tool names and shapes have changed since (for example `toggle_step` is `set_step` and `resolve_move` is `resolve_moves`); `docs/contract.md` is the current reference.
+
 ## Overview
 Docket is a personal to-do list and planner that the owner controls by talking to Claude on iPhone and Mac. Claude adds, breaks down, estimates, schedules, rebalances and reviews tasks, turns emails into tasks, and writes drafts. Docket also tracks the owner's **weekly Claude usage limit** and keeps the remaining budget for high-priority work.
 

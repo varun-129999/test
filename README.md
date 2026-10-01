@@ -28,4 +28,5 @@ the best move (new tiles in lowercase).
 
 ## Also in this repo
 
-`docket/` contains Docket, a voice-first task organiser run through Claude (an MCP server and a PWA). See `docket/README.md`.
+`docket/` contains Docket, a task list and planner run through Claude (an MCP server and a PWA), deployed to Render from the branch `claude/build-from-readme-81ah7g`.
+See `docket/README.md` for setup and daily use, `docket/docs/runbook.md` for backups and restores, and `docket/CLAUDE.md` before changing the code.
