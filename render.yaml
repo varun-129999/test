@@ -1,0 +1,19 @@
+# Render Blueprint for Docket (docket/). Deploy with the "Deploy to Render" link in docket/README.md.
+# Render generates DOCKET_TOKEN and asks you for TZ when you create the Blueprint.
+services:
+  - type: web
+    name: docket
+    runtime: docker
+    dockerfilePath: ./docket/Dockerfile
+    dockerContext: ./docket
+    plan: starter # a persistent disk needs a paid instance
+    healthCheckPath: /healthz
+    envVars:
+      - key: DOCKET_TOKEN
+        generateValue: true
+      - key: TZ
+        sync: false # your IANA time zone, e.g. Europe/London or America/New_York
+    disk:
+      name: docket-data
+      mountPath: /data
+      sizeGB: 1

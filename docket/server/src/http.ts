@@ -56,6 +56,9 @@ export function createApp(store: Store, opts: HttpOptions = {}) {
   const noSessions = (_req: Request, res: Response) => {
     res.status(405).set('Allow', 'POST').json({ jsonrpc: '2.0', error: { code: -32000, message: 'Method not allowed.' }, id: null });
   };
+  // Unauthenticated liveness check for hosting platforms. Reveals nothing.
+  app.get('/healthz', (_req, res) => { res.json({ ok: true }); });
+
   app.post('/mcp', auth, mcp);
   app.post('/mcp/:token', auth, mcp);
   app.get(['/mcp', '/mcp/:token'], auth, noSessions);

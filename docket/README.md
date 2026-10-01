@@ -19,6 +19,16 @@ A voice-first to-do list and planner that you run by talking to Claude on iPhone
 - `web/` is the **Docket PWA** in React + Vite, rebuilt from the design handoff in `design-handoff/`. It reads and writes through the REST API, so your phone and your Mac show the same data, and it updates live when Claude changes something.
 - `claude-project-instructions.md` holds the instructions for the "Docket" Claude Project.
 
+## Set up in about 10 minutes
+
+1. **Deploy.** Open [Deploy to Render](https://render.com/deploy?repo=https://github.com/varun-129999/test/tree/claude/build-from-readme-81ah7g) and sign in with GitHub. Enter your time zone for `TZ` (for example `Europe/London`), then click **Apply**. The Blueprint (`render.yaml` at the repo root) creates the service, a 1 GB disk and a random `DOCKET_TOKEN`. The disk needs a paid "Starter" instance. Once this branch is merged, drop the `/tree/...` part of the link.
+2. **Get your token.** In Render, open the docket service, then **Environment**, and copy `DOCKET_TOKEN`. Your address is the `https://docket-xxxx.onrender.com` URL at the top of the page.
+3. **Add the connector.** In Claude, go to **Settings → Connectors → Add custom connector**. Name it "Docket", with the URL `https://<your-address>/mcp/<DOCKET_TOKEN>`.
+4. **Create the Project.** In Claude, choose **Projects → New project** and name it "Docket". Paste everything below the line in `claude-project-instructions.md` into the project instructions. In the project, turn on Docket, Gmail and Google Drive.
+5. **Install the app.** On your iPhone, open `https://<your-address>/?token=<DOCKET_TOKEN>` in Safari, then tap **Share → Add to Home Screen**. Do the same on your Mac (Safari: **File → Add to Dock**).
+6. **Point "Open Claude" at the project.** In Docket, go to **Usage → Open Claude at** and paste the URL of your Docket project from claude.ai.
+7. **Check it works.** In the Docket project, say "What's on today?". Claude should call `get_overview`.
+
 ## Quick start (local)
 
 Needs Node 22.13 or later. Docket uses the built-in `node:sqlite`, so there are no native modules to build.
@@ -141,7 +151,7 @@ docker build -t docket .
 docker run -p 8787:8787 -v docket-data:/data -e DOCKET_TOKEN=$(openssl rand -hex 32) -e TZ=Europe/London docket
 ```
 
-For Fly.io, see `fly.toml`: create a volume, set the token as a secret, then `fly deploy`. Any host that runs a container with a persistent disk works, such as Railway or Render. The app needs a single instance, because SQLite lives on one disk.
+For Render, use the Blueprint in `render.yaml` (see [Set up](#set-up-in-about-10-minutes)). The unauthenticated `GET /healthz` is the health check. For Fly.io, see `fly.toml`: create a volume, set the token as a secret, then `fly deploy`. Any host that runs a container with a persistent disk works, such as Railway or Render. The app needs a single instance, because SQLite lives on one disk.
 
 ## Tests
 

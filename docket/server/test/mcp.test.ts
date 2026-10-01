@@ -103,6 +103,7 @@ test('REST API: auth, state and edits', async () => {
   const H = { 'content-type': 'application/json', authorization: 'Bearer secret' };
   try {
     assert.equal((await fetch(base + '/state')).status, 401);
+    assert.equal((await fetch(base.replace('/api', '/healthz'))).status, 200);
     const t = await (await fetch(base + '/tasks', { method: 'POST', headers: H, body: JSON.stringify({ title: 'Call mum', area: 'Personal', est: 20, priority: 'med', energy: 'low' }) })).json();
     await fetch(`${base}/tasks/${t.id}`, { method: 'PATCH', headers: H, body: JSON.stringify({ day: '2026-10-02' }) });
     const bad = await fetch(`${base}/tasks/${t.id}`, { method: 'PATCH', headers: H, body: JSON.stringify({ area: 'Fun' }) });
