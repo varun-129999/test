@@ -28,7 +28,7 @@ Docket runs at **https://docket-t6dw.onrender.com**. It is a Render Starter web 
 Check that it is up:
 
 ```sh
-curl https://docket-t6dw.onrender.com/healthz      # {"ok":true,"version":"0.3.0"}
+curl https://docket-t6dw.onrender.com/healthz      # {"ok":true,"version":"0.3.1"}
 ```
 
 ### 1. Copy the token and percent-encode it
@@ -103,7 +103,7 @@ In a chat in the Docket project, say "What's on today?". Claude should call `get
 
 **The app.** Today shows your blocks for the day, with a "Carried over" card for unfinished tasks from earlier days (Today, Pick day, Done, Delete, or Move all to today). They don't count toward today's capacity until you move them. Week shows each day's load, with ‹ › to move between weeks and a "Later" list for anything after the visible week. Both have a search box. Inbox shows the emails Claude read and the tasks it suggested from them. Usage shows your budget. Buttons that use Claude have a small dot. Everything else (done, steps, editing, approving moves) is free.
 
-**Adding tasks without Claude.** Use "Add a task" at the end of Today or under a day in Week. In the composer, start with `+` to add without Claude, for example `+Groceries 45m personal tomorrow low`; it understands durations (`30m`, `1h`), the areas, today, tomorrow, weekday names, and "high" or "low". Open a block and tap **Edit** to change its title, estimate, day, due date, priority, area, energy, project, notes or link.
+**Adding tasks without Claude.** Use "Add a task" at the end of Today or under a day in Week. In the composer, start with `+` to add without Claude, for example `+Groceries 45m personal tomorrow low`; it understands durations (`30m`, `1h`), the areas, today, tomorrow, weekday names, and "high" or "low". Open a block and tap **Edit** to change its title, estimate, day, due date, priority, area, energy, project, notes, link or origin.
 
 **Asking Claude.** Talk to Claude in the Docket project ("add call the bank, 15 minutes, Friday, high"), or use the buttons (Plan my day, Balance my week, Break down, Draft, Scan Gmail, Weekly review) and the composer. A button doesn't spend anything by itself:
 
@@ -114,6 +114,14 @@ In a chat in the Docket project, say "What's on today?". Claude should call `get
 You can queue several requests and open Claude once; one chat handles all of them.
 
 **Giving a task to Claude.** Open a block and tap **Give to Claude**, then type one line ("reply to Asha saying Thursday works"). Claude does it with Gmail, Drive or the web, puts the result on the task, and replies. The block shows "With Claude" while it waits, a **Result** card when Claude is done (Copy, Mark done, Clear), or "Claude replied" with what it needs if it couldn't finish.
+
+### Where a task came from
+
+Each task can carry its origin: the chat, Cowork or Claude Code session, or email it came from, as a kind, a title and a link. Claude sets it when it adds a task from a conversation. In Claude Code and Cowork it can read its own session link, so the link is filled in. In a claude.ai chat Claude can't see the chat's address, so it records the chat's title only; to make it a link, copy the chat's URL from the address bar, open the task's **Edit**, and tap **Paste** next to Origin (or type it). You can also set or change the origin there by hand.
+
+The block shows "From Cowork: Q4 deck" under the title, as a link when there is one. When you **Give to Claude** a task with an origin link, the toast and the queue card say **Continue in Q4 deck** instead of Open Claude: it opens that chat or session and copies the prompt in the same tap, so you paste it there and Claude carries on with the context it already has. No need to write long context into notes. Tasks without a link work as before: Open Claude starts a new chat, and the prompt names the chat by title so Claude knows where the task came from.
+
+Cowork sessions run on the Mac: it has to be awake, with Claude open, for a Cowork session to pick up the request. A Claude Code session on the web continues wherever you open the link.
 
 **Planning the week.** On Week, write what you want this week in the "This week" card, then tap **Plan my week from this**. Claude adds the missing tasks and proposes moves for the existing ones. Claude never moves a task by itself: you approve each move, or use Move all / Skip all.
 
@@ -215,10 +223,10 @@ All dates are `YYYY-MM-DD` and all durations are minutes. Enum fields accept the
 | Tool | Input | What it does |
 |---|---|---|
 | `get_overview` | `{ day? }` | Today, the week with per-day load and the tasks for today onwards, overdue tasks, usage and the reserve state, pending moves, held requests, and up to 5 queued requests. Claude calls it once per conversation. At the reserve it also moves queued below-high requests you didn't approve to the held list and reports `held_now`. |
-| `list_tasks` | `{ from?, to?, area?, project?, q?, ids?, include_done?, limit?, detail? }` | Finds tasks; returns `{ total, returned, truncated, tasks }`. `limit` defaults to 30. `detail: "compact"` (default) gives each task's `day` and flags such as `steps: "1/4"`, `has_notes`, `has_draft`, `has_result` and `done`; `"full"` adds the steps, notes, draft and result themselves. |
-| `add_task` | `{ title, area, est, priority, energy, day?, due?, project?, source?, notes?, link? }` | Creates a task. `day` defaults to today. |
+| `list_tasks` | `{ from?, to?, area?, project?, q?, ids?, include_done?, limit?, detail? }` | Finds tasks; returns `{ total, returned, truncated, tasks }`. `limit` defaults to 30. `detail: "compact"` (default) gives each task's `day` and flags such as `steps: "1/4"`, `has_notes`, `has_draft`, `has_result`, `done` and a short `origin` ("cowork: Q4 deck"); `"full"` adds the steps, notes, draft and result themselves. |
+| `add_task` | `{ title, area, est, priority, energy, day?, due?, project?, source?, notes?, link?, origin? }` | Creates a task. `day` defaults to today. `origin` is `{ kind?, title?, url? }`: where it came from (above). |
 | `add_tasks` | `{ tasks: [...] }` | Creates up to 25 tasks; returns what was added and the open minutes of each affected day. |
-| `update_task` | `{ id, ...fields }` | Changes fields, including `done`. `null` clears `project`, `due`, `notes`, `link` or `result`. |
+| `update_task` | `{ id, ...fields }` | Changes fields, including `done`. A new `origin` replaces the old one. `null` clears `project`, `due`, `notes`, `link`, `origin` or `result`. |
 | `update_tasks` | `{ ids, set }` | Applies the same change to up to 50 tasks; returns the old values. |
 | `complete_task` | `{ id }` | Marks a task done. |
 | `delete_task` | `{ id }` | Deletes a task. |

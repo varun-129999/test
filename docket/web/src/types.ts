@@ -4,6 +4,9 @@ export type Area = 'Work' | 'Personal' | 'Health';
 export type Priority = 'high' | 'med' | 'low';
 export type Energy = 'high' | 'low';
 export type Outcome = 'done' | 'needs_owner' | 'failed' | 'held' | 'cancelled';
+export type OriginKind = 'chat' | 'cowork' | 'claude_code' | 'email' | 'docket';
+/** Where a task came from. On requests the server sends only the fields that are set. */
+export interface Origin { kind?: OriginKind | null; title?: string | null; url?: string | null }
 
 export interface Step { text: string; done: boolean }
 export interface Task {
@@ -11,12 +14,13 @@ export interface Task {
   est: number; priority: Priority; energy: Energy; done: boolean; completed_at: string | null; source: 'gmail' | null;
   draft: string | null; gmail_draft_id: string | null; notes: string | null; link: string | null;
   result: string | null; result_url: string | null; result_at: string | null;
+  origin_kind: OriginKind | null; origin_title: string | null; origin_url: string | null;
   steps: Step[]; created_at: string; updated_at: string;
 }
 /** Body of POST /api/tasks. */
 export interface TaskInput {
   title: string; area: Area; project?: string | null; day?: string; due?: string | null;
-  est: number; priority: Priority; energy: Energy; notes?: string | null; link?: string | null;
+  est: number; priority: Priority; energy: Energy; notes?: string | null; link?: string | null; origin?: Origin | null;
 }
 /** Body of PATCH /api/tasks/:id. */
 export type TaskPatch = Partial<TaskInput> & { done?: boolean; result?: null };
@@ -26,6 +30,7 @@ export interface HeldRequest { id: string; label: string; prompt: string; task_i
 export interface PendingRequest {
   id: string; label: string; prompt: string; task_id: string | null; priority: Priority; override: boolean; created_at: string;
   status: 'pending' | 'done' | 'cancelled'; reply: string | null; outcome: Outcome | null; detail: string | null; seen: boolean; completed_at: string | null;
+  origin: Origin | null;
 }
 export interface WeekPlan { week_start: string; text: string; updated_at: string }
 export interface Email { id: string; from: string; subject: string; snippet: string; when: string; thread_id?: string | null }

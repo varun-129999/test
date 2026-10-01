@@ -2,10 +2,10 @@ import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'reac
 import { finished, lastArea, useDocket } from '../ctx';
 import { age, fmtDay, fmtDur, plural } from '../format';
 import { MicIcon } from '../icons';
-import { Q, claudePrompt, parseQuickAdd, reviewWeek } from '../prompts';
+import { Q, claudePrompt, continueLink, parseQuickAdd, reviewWeek } from '../prompts';
 import type { Outcome, PendingRequest } from '../types';
 import { useNav } from './Sidebar';
-import { OpenClaude, ToastView, type Toast } from './parts';
+import { ContinueLink, OpenClaude, ToastView, type Toast } from './parts';
 
 type SR = { lang: string; interimResults: boolean; continuous: boolean; start(): void; stop(): void; onresult: (e: any) => void; onerror: (e: any) => void; onend: () => void };
 
@@ -88,6 +88,9 @@ export function Panel({ ref, open, onClose, note, onNoteClose }: { ref: Ref<Pane
     { label: 'Scan Gmail', run: () => ask(Q.scanGmail()) },
   ];
   const prompt = claudePrompt(s.requests);
+  // When everything queued belongs to one chat or session, the main action continues there.
+  const here = continueLink(s.requests[0]?.origin);
+  const sameOrigin = !!here && s.requests.every(r => continueLink(r.origin)?.url === here.url);
   const flashCopied = (k: string) => { setCopied(k); window.setTimeout(() => setCopied(''), 4000); };
   const copy = () => { navigator.clipboard?.writeText(prompt).then(() => flashCopied('prompt'), () => notify("Couldn't copy. Select the text in Claude instead.", { kind: 'error' })); };
   const unseen = recent.filter(r => !r.seen).length;
@@ -107,19 +110,25 @@ export function Panel({ ref, open, onClose, note, onNoteClose }: { ref: Ref<Pane
         {s.requests.length > 0 && (
           <div className="card queue">
             <div className="moves-head">Waiting for Claude</div>
-            {s.requests.map(r => (
-              <div key={r.id} className="queue-row">
-                <span className="t">{r.label}</span>
-                <span className="age" title={new Date(r.created_at).toLocaleString()}>{age(r.created_at, now)}</span>
-                <button className="btn slim" onClick={() => act('DELETE', '/requests/' + r.id)}>Remove</button>
-              </div>
-            ))}
+            {s.requests.map(r => {
+              const c = continueLink(r.origin);
+              return (
+                <div key={r.id} className="queue-item">
+                  <div className="queue-row">
+                    <span className="t">{r.label}</span>
+                    <span className="age" title={new Date(r.created_at).toLocaleString()}>{age(r.created_at, now)}</span>
+                    <button className="btn slim" onClick={() => act('DELETE', '/requests/' + r.id)}>Remove</button>
+                  </div>
+                  {c && <ContinueLink reqs={[r]} className="continues" onCopied={() => flashCopied('continue')}>continues in {c.name}</ContinueLink>}
+                </div>
+              );
+            })}
             <div className="row-gap">
-              <OpenClaude onCopied={() => flashCopied('open')} />
+              {sameOrigin ? <ContinueLink reqs={s.requests} className="btn ink claude" onCopied={() => flashCopied('continue')} /> : <OpenClaude onCopied={() => flashCopied('open')} />}
               <button className="btn" onClick={copy}>{copied === 'prompt' ? 'Copied' : 'Copy prompt'}</button>
             </div>
             <div className="hint" style={{ marginTop: 0 }}>
-              {copied === 'open' ? "Copied; paste it if it isn't filled in." : 'Nothing runs until you open Claude. It runs in your own chat, on your plan.'}
+              {copied === 'continue' ? 'Copied; paste it there.' : copied === 'open' ? "Copied; paste it if it isn't filled in." : sameOrigin ? 'Nothing runs until you continue there. It runs in that chat, on your plan.' : 'Nothing runs until you open Claude. It runs in your own chat, on your plan.'}
             </div>
           </div>
         )}

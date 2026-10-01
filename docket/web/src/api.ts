@@ -88,6 +88,7 @@ function task(x: any): Task {
     ...x,
     project: orNull(x.project), due: orNull(x.due), source: orNull(x.source), draft: orNull(x.draft), gmail_draft_id: orNull(x.gmail_draft_id),
     notes: orNull(x.notes), link: orNull(x.link), result: orNull(x.result), result_url: orNull(x.result_url), result_at: orNull(x.result_at),
+    origin_kind: orNull(x.origin_kind), origin_title: orNull(x.origin_title), origin_url: orNull(x.origin_url),
     completed_at: orNull(x.completed_at), done: !!x.done, est: Number(x.est) || 0,
     steps: arr(x.steps, (s: any) => ({ text: String(s?.text ?? ''), done: !!s?.done })),
     created_at: x.created_at ?? '', updated_at: x.updated_at ?? '',
@@ -97,7 +98,7 @@ function request(x: any, seenDefault: boolean): PendingRequest {
   return {
     ...x, task_id: orNull(x.task_id), priority: x.priority ?? 'high', override: !!x.override, status: x.status ?? 'pending',
     reply: orNull(x.reply), outcome: orNull(x.outcome), detail: orNull(x.detail), seen: x.seen === undefined ? seenDefault : !!x.seen,
-    completed_at: orNull(x.completed_at), created_at: x.created_at ?? '',
+    completed_at: orNull(x.completed_at), created_at: x.created_at ?? '', origin: x.origin && typeof x.origin === 'object' ? x.origin : null,
   };
 }
 

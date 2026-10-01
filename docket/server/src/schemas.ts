@@ -10,10 +10,12 @@ export const ENERGIES = ['high', 'low'] as const;
 export type Area = (typeof AREAS)[number];
 export type Priority = (typeof PRIORITIES)[number];
 export type Energy = (typeof ENERGIES)[number];
+export const ORIGIN_KINDS = ['chat', 'cowork', 'claude_code', 'email', 'docket'] as const;
+export type OriginKind = (typeof ORIGIN_KINDS)[number];
 
 export const CAPS = {
   title: 200, project: 100, notes: 4000, link: 500, step: 300, reason: 300, label: 120, prompt: 2000,
-  reply: 500, detail: 2000, draft: 20000, review: 2000, result: 4000, plan: 2000, email: 300, snippet: 500, when: 40, id: 64,
+  reply: 500, origin: 120, detail: 2000, draft: 20000, review: 2000, result: 4000, plan: 2000, email: 300, snippet: 500, when: 40, id: 64,
 } as const;
 
 // Enums accept the obvious spellings ("medium", "work"); norm() turns them into the stored
@@ -25,6 +27,11 @@ const ENERGY_IN = ['high', 'low', 'High', 'Low'] as const;
 export const normPriority = (v: string): Priority => { const s = v.toLowerCase(); return s === 'high' ? 'high' : s === 'low' ? 'low' : 'med'; };
 export const normArea = (v: string): Area => { const s = v.toLowerCase(); return s === 'personal' ? 'Personal' : s === 'health' ? 'Health' : 'Work'; };
 export const normEnergy = (v: string): Energy => (v.toLowerCase() === 'high' ? 'high' : 'low');
+const ORIGIN_IN = [...ORIGIN_KINDS, 'claude-code', 'Claude Code', 'code', 'gmail', 'Chat', 'Cowork', 'Email', 'Docket'] as const;
+export const normOriginKind = (v: string): OriginKind => {
+  const s = v.toLowerCase().replace(/[\s-]+/g, '_');
+  return s === 'code' ? 'claude_code' : s === 'gmail' ? 'email' : (ORIGIN_KINDS as readonly string[]).includes(s) ? (s as OriginKind) : 'chat';
+};
 
 export const priority = z.enum(PRIORITY_IN).meta({ enum: [...PRIORITIES] });
 export const area = z.enum(AREA_IN).meta({ enum: [...AREAS] });
@@ -39,6 +46,12 @@ export const id = z.string().trim().min(1).max(CAPS.id).meta({ minLength: undefi
 const requestId = id.optional().describe('The queued request this handles');
 /** Links are rendered as hrefs in the app: only web and mail links, never javascript: or data:. */
 export const isSafeUrl = (v: string) => /^(https?:\/\/|mailto:)\S+$/i.test(v.trim());
+/** Origin links open a chat or session from the app: https only (claude.ai, claude.com or any other https site). */
+export const isHttpsUrl = (v: string) => {
+  const t = v.trim();
+  if (!/^https:\/\/\S+$/i.test(t)) return false;
+  try { return new URL(t).protocol === 'https:'; } catch { return false; }
+};
 const url = (max: number) => z.string().trim().max(max).refine(isSafeUrl, 'must start with https://, http:// or mailto:');
 const text = (max: number) => z.string().trim().min(1).max(max);
 const str = (max: number) => z.string().trim().max(max);
@@ -49,6 +62,13 @@ function orNull<T extends z.ZodType>(s: T) {
 }
 /** On a patch, null clears the field. */
 const clearable = <T extends z.ZodType>(s: T) => s.nullable().optional();
+
+/** Where a task came from. The link is the context: "Give to Claude" continues there. */
+export const Origin = z.object({
+  kind: orNull(z.enum(ORIGIN_IN).meta({ enum: [...ORIGIN_KINDS] })),
+  title: orNull(str(CAPS.origin)).describe("The chat's or session's title"),
+  url: orNull(z.string().trim().max(CAPS.link).refine(isHttpsUrl, 'must be an https:// link')),
+});
 
 export const TaskInput = z.object({
   title: text(CAPS.title),
@@ -62,6 +82,7 @@ export const TaskInput = z.object({
   source: orNull(z.enum(['gmail'])).describe('"gmail" if from an email'),
   notes: orNull(str(CAPS.notes)).describe('Context, what "done" means'),
   link: orNull(url(CAPS.link)),
+  origin: orNull(Origin).describe('Where the task came from'),
 });
 export const TaskPatch = z.object({
   title: text(CAPS.title).optional(),
@@ -75,6 +96,7 @@ export const TaskPatch = z.object({
   source: clearable(z.enum(['gmail'])),
   notes: clearable(str(CAPS.notes)),
   link: clearable(url(CAPS.link)),
+  origin: clearable(Origin),
   done: z.boolean().optional(),
   result: z.null().optional().describe('null clears the result'),
 });
@@ -139,8 +161,10 @@ export const ListTasks = z.object({
   detail: z.enum(['compact', 'full']).optional(),
 });
 
+type OriginOut = { kind?: OriginKind; title?: string; url?: string };
 type Fixed<T> = {
-  [K in keyof T]: K extends 'area' ? Area | Extract<T[K], null | undefined>
+  [K in keyof T]: K extends 'origin' ? OriginOut | Extract<T[K], null | undefined>
+    : K extends 'area' ? Area | Extract<T[K], null | undefined>
     : K extends 'priority' ? Priority | Extract<T[K], null | undefined>
     : K extends 'energy' ? Energy | Extract<T[K], null | undefined> : T[K];
 };
@@ -151,6 +175,8 @@ export function norm<T extends object>(v: T): Fixed<T> {
   if (typeof out.area === 'string') out.area = normArea(out.area);
   if (typeof out.priority === 'string') out.priority = normPriority(out.priority);
   if (typeof out.energy === 'string') out.energy = normEnergy(out.energy);
+  const o = out.origin as Record<string, unknown> | null | undefined;
+  if (o && typeof o.kind === 'string') out.origin = { ...o, kind: normOriginKind(o.kind) };
   return out as Fixed<T>;
 }
 

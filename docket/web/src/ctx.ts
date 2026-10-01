@@ -21,8 +21,11 @@ export function parseRoute(hash: string): Route {
   return screen === 'week' && arg && /^\d{4}-\d{2}-\d{2}$/.test(arg) ? { screen, week: arg } : { screen };
 }
 
-/** A toast action: a plain button, or the "Open Claude" link for the current queue. */
-export type ToastAction = { label: string; run: () => void } | 'open-claude';
+/**
+ * A toast action: a plain button, the "Open Claude" link for the current queue, or "Continue in …"
+ * for a queued request whose task came from a chat or session with a link.
+ */
+export type ToastAction = { label: string; run: () => void } | 'open-claude' | { continue: string };
 export interface NotifyOpts { kind?: 'info' | 'error'; action?: ToastAction }
 
 export interface Ctx {

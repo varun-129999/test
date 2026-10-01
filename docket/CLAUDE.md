@@ -66,6 +66,7 @@ Keep `npm test`, `npm run typecheck` and `npm run build` green before handing wo
 ## Contract summary (details in `docs/contract.md`)
 
 - Task has notes, link, completed_at and result fields (`result` is what Claude produced for "Give to Claude"). Requests carry outcome (`done`, `needs_owner`, `failed`, `held`, `cancelled`), detail and seen. One week plan per Monday.
+- Task origin (schema v3): `origin_kind`, `origin_title`, `origin_url`, set as `origin: { kind, title, url }` (https only; null clears). The link is the context: Give to Claude offers "Continue in <title>", and pending requests carry their task's origin.
 - Usage: `at_reserve` from the reported figure only; `near_reserve` from the estimate. The period comes from the status-line `resets_at` when known, otherwise `settings.reset`.
 - Guard: below-high work at the reserve is held via `hold_request` or at queue and pickup time; "Run anyway" and "Queue all" set `override`.
 - 25 tools: `get_overview`, `list_tasks`, `add_task`, `add_tasks`, `update_task`, `update_tasks`, `complete_task`, `delete_task`, `set_steps`, `add_steps`, `set_step`, `propose_moves`, `resolve_moves`, `attach_draft`, `attach_result`, `get_usage`, `set_usage`, `set_settings`, `get_pending_requests`, `complete_request`, `hold_request`, `save_review`, `set_week_plan`, `record_emails`, `suggest_tasks`.

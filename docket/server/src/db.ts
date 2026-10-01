@@ -167,6 +167,11 @@ const MIGRATIONS: ((db: DatabaseSync) => void)[] = [
       UPDATE tasks SET completed_at = updated_at WHERE done = 1 AND completed_at IS NULL;
     `);
   },
+  // v3: where a task came from (a chat, a Cowork or Claude Code session, an email), so
+  // "Give to Claude" can continue there instead of carrying the context in notes.
+  db => {
+    for (const col of ['origin_kind TEXT', 'origin_title TEXT', 'origin_url TEXT']) addColumn(db, 'tasks', col);
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

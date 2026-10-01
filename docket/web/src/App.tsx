@@ -178,7 +178,8 @@ export function App() {
           // The same request already waiting takes the newest wording, so say which happened.
           const before = r.existing ? s.requests.find(x => x.id === r.request.id) : undefined;
           const lead = !r.existing ? 'Ready for Claude: ' : before && before.prompt !== r.request.prompt ? 'Updated what Claude will do: ' : 'Already waiting for Claude: ';
-          notify(lead + q.label.replace(/^Give to Claude: /, ''), { action: 'open-claude' });
+          const task = q.taskId ? s.tasks.find(x => x.id === q.taskId) : undefined;
+          notify(lead + q.label.replace(/^Give to Claude: /, ''), { action: task?.origin_url ? { continue: r.request.id } : 'open-claude' });
         }
       } catch (e) {
         fail(e);
@@ -189,7 +190,10 @@ export function App() {
       s, wide, route, now, q, setQ, go, act, ask, optimistic, openSheet, mic, notify,
       call: async <T,>(m: string, p: string, b?: unknown) => (await run<T>(m, p, b)).data,
       patchTask: (t: Task, p: TaskPatch) => {
-        optimistic(st => ({ ...st, tasks: st.tasks.map(x => (x.id === t.id ? ({ ...x, ...p } as Task) : x)) }));
+        // The task stores its origin flat; the patch sends it as one object.
+        const { origin, ...rest } = p;
+        const flat = origin !== undefined ? { origin_kind: origin?.kind ?? null, origin_title: origin?.title ?? null, origin_url: origin?.url ?? null } : {};
+        optimistic(st => ({ ...st, tasks: st.tasks.map(x => (x.id === t.id ? ({ ...x, ...rest, ...flat } as Task) : x)) }));
         return act('PATCH', '/tasks/' + t.id, p);
       },
       addTask: async (t: TaskInput, o: { quiet?: boolean } = {}) => {

@@ -4,8 +4,8 @@ import { flushSync } from 'react-dom';
 import { AREA, AREAS, isStandalone, lastArea, search, useDocket, type ToastAction } from '../ctx';
 import { addDays, fmtDay, fmtDur, nextMonday, plural } from '../format';
 import { SearchIcon } from '../icons';
-import { claudeLink, claudePrompt } from '../prompts';
-import type { Area, Task, TaskPatch } from '../types';
+import { ORIGIN_LABEL, claudeLink, claudePrompt, continueLink } from '../prompts';
+import type { Area, OriginKind, PendingRequest, Task, TaskPatch } from '../types';
 
 // "Set this week's plan" on Today opens Week with the plan field focused.
 let planFocus = false;
@@ -27,15 +27,33 @@ export function OpenClaude({ className = 'btn ink', onCopied, onOpen }: { classN
   );
 }
 
+/**
+ * "Continue in <title>": opens the chat or session the task came from, and copies the prompt in
+ * the same tap (an existing chat can't be prefilled), so it is one paste there.
+ */
+export function ContinueLink({ reqs, className = 'btn ink', onCopied, children }: { reqs: PendingRequest[]; className?: string; onCopied?: () => void; children?: React.ReactNode }) {
+  const c = continueLink(reqs[0]?.origin);
+  if (!c) return null;
+  const prompt = claudePrompt(reqs);
+  return (
+    <a className={className} style={{ textDecoration: 'none' }} href={c.url} target="_blank" rel="noreferrer" title={c.url}
+      onClick={() => { try { navigator.clipboard?.writeText(prompt).then(() => onCopied?.(), () => { /* denied */ }); } catch { /* no clipboard */ } }}>
+      {children ?? c.label}
+    </a>
+  );
+}
+
 /** A toast: bottom right on the Mac, above the tab bar on the phone, above the composer in the sheet. */
 export function ToastView({ t, where, onClose }: { t: Toast; where: 'wide' | 'phone' | 'sheet'; onClose: () => void }) {
-  const { s } = useDocket();
+  const { s, notify } = useDocket();
   const a = t.action;
+  const cont = a && typeof a === 'object' && 'continue' in a ? s.requests.find(r => r.id === a.continue) : undefined;
   return (
     <div className={(where === 'sheet' ? 'sheet-note' : 'toast' + (where === 'wide' ? ' wide' : '')) + (t.kind === 'error' ? ' error' : '')} role={t.kind === 'error' ? 'alert' : 'status'}>
       {t.kind === 'error' && <span className="dot" />}
       <span className="msg">{t.msg}</span>
-      {a === 'open-claude' ? (s.requests.length > 0 && <OpenClaude className="btn slim toast-act" />)
+      {cont && continueLink(cont.origin) ? <ContinueLink reqs={[cont]} className="btn slim toast-act claude" onCopied={() => notify('Copied; paste it there.')} />
+        : a === 'open-claude' || (a && typeof a === 'object' && 'continue' in a) ? (s.requests.length > 0 && <OpenClaude className="btn slim toast-act" />)
         : a ? <button className="btn slim toast-act" onClick={() => { onClose(); a.run(); }}>{a.label}</button> : null}
       <button className="x" aria-label="Dismiss" onClick={onClose}>×</button>
     </div>
@@ -71,6 +89,7 @@ export function TaskEdit({ x, onClose, onDelete }: { x: Task; onClose: () => voi
   const [f, setF] = useState(() => ({
     title: x.title, est: String(x.est), day: x.day, due: x.due ?? '', priority: x.priority, area: x.area, energy: x.energy,
     project: x.project ?? '', notes: x.notes ?? '', link: x.link ?? '',
+    origin_kind: (x.origin_kind ?? '') as OriginKind | '', origin_title: x.origin_title ?? '', origin_url: x.origin_url ?? '',
   }));
   const [busy, setBusy] = useState(false);
   const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF(p => ({ ...p, [k]: v }));
@@ -94,11 +113,22 @@ export function TaskEdit({ x, onClose, onDelete }: { x: Task; onClose: () => voi
     if (project !== x.project) p.project = project;
     if (notes !== x.notes) p.notes = notes;
     if (link !== x.link) p.link = link;
+    const oRaw = f.origin_url.trim(), oUrl = oRaw ? (/^[a-z][a-z0-9+.-]*:/i.test(oRaw) ? oRaw : 'https://' + oRaw) : null;
+    if (oUrl && !/^https:\/\//i.test(oUrl)) return notify('The origin link must start with https://.', { kind: 'error' });
+    const o = { kind: f.origin_kind || null, title: f.origin_title.trim() || null, url: oUrl };
+    if (o.kind !== x.origin_kind || o.title !== x.origin_title || o.url !== x.origin_url) p.origin = o.kind || o.title || o.url ? o : null;
     if (!Object.keys(p).length) return onClose();
     setBusy(true);
     const ok = await patchTask(x, p);
     setBusy(false);
     if (ok) onClose();
+  };
+  // Paste needs permission in some browsers; when it is refused the owner can still type or long-press.
+  const pasteOrigin = async () => {
+    let t = '';
+    try { t = (await navigator.clipboard.readText()).trim(); } catch { /* denied or unsupported */ }
+    if (!t) return notify("Couldn't read the clipboard. Paste into the field instead.", { kind: 'error' });
+    setF(p => ({ ...p, origin_url: t, origin_kind: p.origin_kind || (/^https:\/\/claude\.ai\/code\//i.test(t) ? 'claude_code' : /^https:\/\/claude\.ai\//i.test(t) ? 'chat' : /^https:\/\/mail\.google\.com\//i.test(t) ? 'email' : '') }));
   };
   const listId = 'projects-' + x.id;
   return (
@@ -125,6 +155,21 @@ export function TaskEdit({ x, onClose, onDelete }: { x: Task; onClose: () => voi
       <datalist id={listId}>{projects.map(p => <option key={p} value={p} />)}</datalist>
       <label className="f top"><span>Notes</span><textarea rows={3} value={f.notes} onChange={e => set('notes', e.target.value)} maxLength={4000} placeholder="Context, links, what done means" /></label>
       <label className="f"><span>Link</span><input type="text" inputMode="url" value={f.link} onChange={e => set('link', e.target.value)} maxLength={500} placeholder="https://" /></label>
+      <div className="f top"><span>Origin</span>
+        <div className="origin-edit">
+          <div className="row-gap">
+            <select aria-label="Where it came from" value={f.origin_kind} onChange={e => set('origin_kind', e.target.value as OriginKind | '')}>
+              <option value="">None</option>
+              {(Object.keys(ORIGIN_LABEL) as OriginKind[]).map(k => <option key={k} value={k}>{ORIGIN_LABEL[k]}</option>)}
+            </select>
+            <input className="grow" aria-label="Chat or session title" value={f.origin_title} onChange={e => set('origin_title', e.target.value)} maxLength={120} placeholder="Chat or session title" />
+          </div>
+          <div className="row-gap">
+            <input className="grow" type="text" inputMode="url" aria-label="Chat or session link" value={f.origin_url} onChange={e => set('origin_url', e.target.value)} maxLength={500} placeholder="https://claude.ai/…" />
+            <button type="button" className="btn slim" onClick={pasteOrigin}>Paste</button>
+          </div>
+        </div>
+      </div>
       <div className="row-gap edit-actions">
         <button className="btn ink" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save'}</button>
         <button className="btn" type="button" onClick={onClose}>Cancel</button>

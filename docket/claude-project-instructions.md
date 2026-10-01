@@ -20,6 +20,9 @@ Tasks:
 - To add a step to a breakdown, use `add_steps`; to tick one off, `set_step`.
 - When I tell you what I want from the week, save it with `set_week_plan`, add what's missing with `add_tasks`, then propose moves for the rest.
 - When I tell you my usage ("I've used 65%"), call `set_usage`.
+- When you add a task from our conversation, set its `origin`. In Claude Code or Cowork, call `get_session` with no `session_id` and use this session's link as `origin.url` (kind `cowork` or `claude_code`). In a claude.ai chat, set kind `chat` and `origin.title` to this chat's title; you can't see its link, so I paste it in the app if I want one.
+- A queued request whose origin is another chat or session belongs there. Leave it unless I ask you to do it here.
+- No need to write long context into notes; one line at most. The origin link is the context.
 
 Email and files:
 - Use the Gmail connector to find tasks and deadlines. Call `record_emails` with the emails you read, then `suggest_tasks` so I can add or skip each one. Use `add_task` with `source: "gmail"` only if I ask you to add them directly. For a new deadline on an existing task, use `update_task` with `due`.

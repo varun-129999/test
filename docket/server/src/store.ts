@@ -2,10 +2,10 @@ import { EventEmitter } from 'node:events';
 import { randomBytes } from 'node:crypto';
 import { type DB, tx } from './db.js';
 import { DOWL, addDays, ago, dt, fmtDay, fmtMoment, iso, isIsoDay, isoWeek, localIso, periodStart, tzName, weekDays, weekStart } from './dates.js';
-import { AREAS, ENERGIES, PRIORITIES, isSafeUrl, type Area, type Energy, type Priority } from './schemas.js';
+import { AREAS, ENERGIES, ORIGIN_KINDS, PRIORITIES, isHttpsUrl, isSafeUrl, type Area, type Energy, type OriginKind, type Priority } from './schemas.js';
 import { version } from './version.js';
 
-export { AREAS, ENERGIES, PRIORITIES, type Area, type Energy, type Priority };
+export { AREAS, ENERGIES, ORIGIN_KINDS, PRIORITIES, type Area, type Energy, type OriginKind, type Priority };
 
 export interface Step { text: string; done: boolean }
 export interface Task {
@@ -13,11 +13,16 @@ export interface Task {
   est: number; priority: Priority; energy: Energy; done: boolean; completed_at: string | null; source: 'gmail' | null;
   draft: string | null; gmail_draft_id: string | null; notes: string | null; link: string | null;
   result: string | null; result_url: string | null; result_at: string | null;
+  origin_kind: OriginKind | null; origin_title: string | null; origin_url: string | null;
   steps: Step[]; created_at: string; updated_at: string;
 }
+/** Where a task came from; only the fields that are set. */
+export interface Origin { kind?: OriginKind; title?: string; url?: string }
+export interface OriginIn { kind?: OriginKind | null; title?: string | null; url?: string | null }
 export interface TaskInput {
   title: string; area: Area; project?: string | null; day?: string; due?: string | null;
   est: number; priority: Priority; energy: Energy; source?: 'gmail' | null; notes?: string | null; link?: string | null;
+  origin?: OriginIn | null;
 }
 export type TaskPatch = Partial<TaskInput> & { done?: boolean; result?: null };
 export type StepIn = string | { text: string; done?: boolean };
@@ -38,6 +43,8 @@ export type Outcome = 'done' | 'needs_owner' | 'failed' | 'held' | 'cancelled';
 export interface PendingRequest {
   id: string; label: string; prompt: string; task_id: string | null; priority: Priority; override: boolean; created_at: string;
   status: 'pending' | 'done' | 'cancelled'; reply: string | null; outcome: Outcome | null; detail: string | null; seen: boolean; completed_at: string | null;
+  /** Pending requests only: the task's origin, so Claude in another session leaves it for that one. */
+  origin?: Origin;
 }
 export interface WeekPlan { week_start: string; text: string; updated_at: string }
 export interface Email { id: string; from: string; subject: string; snippet: string; when: string; thread_id: string | null }
@@ -67,6 +74,27 @@ export function isClaudeUrl(v: string): boolean {
   } catch { return false; }
 }
 
+/** A link that does not say what it is: Claude Code session links are recognisable, email ones too. */
+const guessKind = (url: string): OriginKind | null =>
+  /^https:\/\/claude\.ai\/code\//i.test(url) ? 'claude_code' : /^https:\/\/claude\.ai\/chat\//i.test(url) ? 'chat' : /^https:\/\/mail\.google\.com\//i.test(url) ? 'email' : null;
+
+/** The stored columns for an origin; null or an empty object clears all three. */
+function originCols(o: OriginIn | null | undefined) {
+  const url = o?.url?.trim() || null, title = o?.title?.trim().slice(0, 120) || null;
+  return { origin_kind: o?.kind || (url ? guessKind(url) : null), origin_title: title, origin_url: url };
+}
+
+const pick = (kind: unknown, title: unknown, url: unknown): Origin | undefined =>
+  kind || title || url ? { ...(kind ? { kind: kind as OriginKind } : {}), ...(title ? { title: String(title) } : {}), ...(url ? { url: String(url) } : {}) } : undefined;
+
+export const originOf = (t: Task) => pick(t.origin_kind, t.origin_title, t.origin_url);
+
+/** "cowork: Q4 deck" for the compact shapes: kind and title, never the link (it is long and Claude rarely needs it). */
+export function originLabel(t: Task): string | undefined {
+  if (!t.origin_kind && !t.origin_title && !t.origin_url) return;
+  return [t.origin_kind, t.origin_title].filter(Boolean).join(': ') || 'link';
+}
+
 const id = (prefix = '') => prefix + randomBytes(6).toString('base64url').replace(/[-_]/g, '').slice(0, 6).toLowerCase().padEnd(6, '0');
 const nowIso = (d: Date) => d.toISOString();
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
@@ -86,7 +114,7 @@ export function compactTask(t: Task, o: { day?: boolean; done?: boolean } = {}) 
     ...(o.done && t.done ? { done: true } : {}), ...(t.source ? { source: t.source } : {}),
     ...(t.steps.length ? { steps: `${t.steps.filter(x => x.done).length}/${t.steps.length}` } : {}),
     ...(t.draft ? { has_draft: true } : {}), ...(t.notes ? { has_notes: true } : {}), ...(t.result ? { has_result: true } : {}),
-    ...(t.link ? { link: t.link } : {}),
+    ...(t.link ? { link: t.link } : {}), ...(originLabel(t) ? { origin: originLabel(t) } : {}),
   };
 }
 
@@ -256,6 +284,7 @@ export class Store {
       priority: r.priority, energy: r.energy, done: !!r.done, completed_at: r.completed_at || null, source: r.source || null,
       draft: r.draft || null, gmail_draft_id: r.gmail_draft_id || null, notes: r.notes || null, link: r.link || null,
       result: r.result || null, result_url: r.result_url || null, result_at: r.result_at || null,
+      origin_kind: r.origin_kind || null, origin_title: r.origin_title || null, origin_url: r.origin_url || null,
       steps, created_at: r.created_at, updated_at: r.updated_at,
     };
   }
@@ -318,15 +347,18 @@ export class Store {
     if (p.due && !isIsoDay(p.due)) throw new DocketError('due must be YYYY-MM-DD');
     if (p.est !== undefined && !(p.est > 0)) throw new DocketError('est must be a positive number of minutes');
     if (p.link && !isSafeUrl(p.link)) throw new DocketError('link must start with https://, http:// or mailto:');
+    if (p.origin?.url && !isHttpsUrl(p.origin.url)) throw new DocketError('origin.url must be an https:// link');
+    if (p.origin?.kind && !ORIGIN_KINDS.includes(p.origin.kind)) throw new DocketError(`origin.kind must be one of ${ORIGIN_KINDS.join(', ')}`);
   }
 
   private insertTask(t: TaskInput): string {
     this.checkFields(t);
-    const taskId = id(), at = this.stamp();
-    this.db.prepare(`INSERT INTO tasks (id, title, area, project, day, due, est_min, priority, energy, done, source, notes, link, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)`).run(
+    const taskId = id(), at = this.stamp(), o = originCols(t.origin);
+    this.db.prepare(`INSERT INTO tasks (id, title, area, project, day, due, est_min, priority, energy, done, source, notes, link, origin_kind, origin_title, origin_url, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
       taskId, t.title.trim(), t.area, t.project?.trim() || null, t.day || this.today(), t.due || null,
-      Math.max(5, Math.round(t.est)), t.priority, t.energy, t.source || null, t.notes?.trim() || null, t.link?.trim() || null, at, at);
+      Math.max(5, Math.round(t.est)), t.priority, t.energy, t.source || null, t.notes?.trim() || null, t.link?.trim() || null,
+      o.origin_kind, o.origin_title, o.origin_url, at, at);
     return taskId;
   }
 
@@ -357,6 +389,8 @@ export class Store {
     if (p.source !== undefined) cols.source = p.source || null;
     if (p.notes !== undefined) cols.notes = p.notes?.trim() || null;
     if (p.link !== undefined) cols.link = p.link?.trim() || null;
+    // An origin replaces the old one as a whole: a new chat is a new place to continue.
+    if (p.origin !== undefined) Object.assign(cols, originCols(p.origin));
     if (p.done !== undefined) {
       cols.done = p.done ? 1 : 0;
       if (!p.done) cols.completed_at = null;
@@ -388,7 +422,7 @@ export class Store {
     const before = tx(this.db, () => [...new Set(ids)].map(taskId => {
       const cur = this.getTask(taskId);
       const old: Record<string, unknown> = { id: taskId };
-      for (const k of keys) old[k] = cur[k as keyof Task];
+      for (const k of keys) old[k] = k === 'origin' ? originOf(cur) ?? null : cur[k as keyof Task];
       if (this.patchTask(cur, set)) updated++;
       return old;
     }));
@@ -697,7 +731,12 @@ export class Store {
   }
 
   pendingRequests(): PendingRequest[] {
-    return (this.db.prepare(`SELECT * FROM pending_requests WHERE status = 'pending' ORDER BY created_at, rowid`).all() as Row[]).map(r => this.rowToRequest(r));
+    return (this.db.prepare(`SELECT p.*, t.origin_kind AS t_kind, t.origin_title AS t_title, t.origin_url AS t_url
+      FROM pending_requests p LEFT JOIN tasks t ON t.id = p.task_id WHERE p.status = 'pending' ORDER BY p.created_at, p.rowid`).all() as Row[])
+      .map(r => {
+        const origin = pick(r.t_kind, r.t_title, r.t_url);
+        return origin ? { ...this.rowToRequest(r), origin } : this.rowToRequest(r);
+      });
   }
 
   /**
@@ -913,6 +952,7 @@ export class Store {
       held_requests: this.heldRequests().map(h => ({ id: h.id, label: h.label })),
       pending_requests: pending.slice(0, 5).map(r => ({
         id: r.id, prompt: r.prompt, ...(r.task_id ? { task_id: r.task_id } : {}), priority: r.priority, ...(r.override ? { budget_override: true } : {}),
+        ...(r.origin ? { origin: r.origin } : {}),
       })),
       ...(pending.length > 5 ? { more_requests: pending.length - 5 } : {}),
       ...(inbox ? { inbox_suggestions: inbox } : {}),
@@ -977,7 +1017,7 @@ export class Store {
     add({ title: 'Call mum', area: 'Personal', est: 20 });
     add({ title: 'Book dentist', area: 'Health', est: 5, priority: 'low' });
     add({ title: 'Groceries', area: 'Personal', est: 45 });
-    add({ title: 'Plan Lisbon trip', area: 'Personal', project: 'Lisbon trip', est: 60, priority: 'low' });
+    add({ title: 'Plan Lisbon trip', area: 'Personal', project: 'Lisbon trip', est: 60, priority: 'low', origin: { kind: 'chat', title: 'Lisbon ideas' } });
     add({ title: 'Gym', area: 'Health', est: 40, energy: 'high' });
     add({ title: 'Laundry', area: 'Personal', est: 30, day: n(1), priority: 'low' });
     add({ title: 'Book Lisbon flights', area: 'Personal', project: 'Lisbon trip', est: 30, day: n(2) });

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { AREA, AREAS, derive, finished, safeUrl, useDocket } from '../ctx';
 import { DOWL, MONL, addDays, ago, dt, fmtDay, fmtDur, plural, shortDay } from '../format';
-import { Q } from '../prompts';
+import { Q, continueLink, originOf, originText } from '../prompts';
 import type { Task } from '../types';
 import { ringBg } from './Sidebar';
 import { AddTaskRow, DayPicker, SearchResults, TaskEdit, focusPlanNext, useDelete, useFind } from './parts';
@@ -185,6 +185,7 @@ function Block({ x, over, open, onExpand, onClose }: { x: Task; over: boolean; o
   const meta = [x.project, x.energy === 'high' ? 'High energy' : 'Low energy', x.steps.length ? `${sd} of ${x.steps.length} steps` : ''].filter(Boolean).join(' · ');
   const h = big ? Math.min(130, Math.max(48, x.est * 0.7)) : 0;
   const link = safeUrl(x.link), resultUrl = safeUrl(x.result_url);
+  const origin = originOf(x), from = originText(origin), fromUrl = continueLink(origin)?.url;
 
   const copy = (k: string, text: string) => {
     navigator.clipboard?.writeText(text).then(() => { setCopied(k); window.setTimeout(() => setCopied(''), 1500); }, () => notify("Couldn't copy.", { kind: 'error' }));
@@ -214,7 +215,10 @@ function Block({ x, over, open, onExpand, onClose }: { x: Task; over: boolean; o
         <div className="block-body">
           <div className="block-title">{x.title}</div>
           <div className="block-meta">
-            <span className="meta">{meta}</span>
+            {meta && <span className="meta">{meta}</span>}
+            {from && (fromUrl
+              ? <a className="origin" href={fromUrl} target="_blank" rel="noreferrer" title={fromUrl} onClick={e => e.stopPropagation()}>{from}</a>
+              : <span className="origin">{from}</span>)}
             {tags.map(tg => <span key={tg.t} className="tag" style={{ background: tg.bg, color: tg.fg }}>{tg.t}</span>)}
           </div>
         </div>
