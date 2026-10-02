@@ -4,6 +4,8 @@ import { DOWL, MONL, addDays, ago, dt, fmtDay, fmtDur, plural, shortDay } from '
 import { Q, continueLink, originOf, originText } from '../prompts';
 import { describeRepeat, shortRepeat } from '../repeat';
 import type { Task } from '../types';
+import { onKey } from '../keys';
+import { undoDay } from '../undo';
 import { ringBg } from './Sidebar';
 import { AddTaskRow, DayPicker, SearchResults, TaskEdit, focusPlanNext, useDelete, useFind } from './parts';
 
@@ -17,9 +19,21 @@ export function Legend({ children }: { children?: React.ReactNode }) {
 }
 
 export function Today() {
-  const { s, wide, go, ask, openSheet, q } = useDocket();
+  const { s, wide, go, ask, openSheet, q, patchTask } = useDocket();
   const d = derive(s);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const del = useDelete();
+  // Keyboard (Mac): e marks the open block done, x deletes it, Esc closes it.
+  const keyRef = useRef({ expanded, tasks: s.tasks, patchTask, del });
+  keyRef.current = { expanded, tasks: s.tasks, patchTask, del };
+  useEffect(() => onKey(a => {
+    const k = keyRef.current, x = k.expanded ? k.tasks.find(t => t.id === k.expanded && !t.done) : undefined;
+    if (!x) return false;
+    if (a === 'escape') { setExpanded(null); return true; }
+    if (a === 'done') { setExpanded(null); k.patchTask(x, { done: true }); return true; }
+    if (a === 'delete') { setExpanded(null); k.del(x); return true; }
+    return false;
+  }), []);
   const frozen = useRef<string[] | null>(null);
   const find = useFind();
   const td = dt(d.t);
@@ -103,14 +117,19 @@ export function Today() {
 
 /** Open tasks from earlier days. They don't count toward today until moved. */
 function CarriedOver({ tasks }: { tasks: Task[] }) {
-  const { s, patchTask, act, optimistic } = useDocket();
+  const { s, patchTask, act, optimistic, undo } = useDocket();
   const del = useDelete();
   const [all, setAll] = useState(false);
   const [pick, setPick] = useState<string | null>(null);
   const moveAll = async () => {
     const ids = new Set(tasks.map(x => x.id));
     optimistic(st => ({ ...st, tasks: st.tasks.map(x => (ids.has(x.id) ? { ...x, day: st.today } : x)) }));
-    await Promise.all(tasks.map(x => act('PATCH', '/tasks/' + x.id, { day: s.today })));
+    const oks = await Promise.all(tasks.map(x => act('PATCH', '/tasks/' + x.id, { day: s.today })));
+    const moved = tasks.filter((_, i) => oks[i]);
+    if (moved.length) undo(`Moved ${plural(moved.length, 'task')} to today`, undoDay(moved));
+  };
+  const moveTo = async (x: Task, day: string) => {
+    if (await patchTask(x, { day })) undo(`Moved to ${day === s.today ? 'today' : fmtDay(day)}: ${x.title}`, undoDay([x]));
   };
   const shown = all ? tasks : tasks.slice(0, 5);
   return (
@@ -127,12 +146,12 @@ function CarriedOver({ tasks }: { tasks: Task[] }) {
             <div className="m">from {shortDay(x.day, s.today)} · {fmtDur(x.est)}{x.priority === 'high' ? ' · High' : ''}</div>
           </div>
           <div className="row-gap acts">
-            <button className="btn slim" onClick={() => patchTask(x, { day: s.today })}>Today</button>
+            <button className="btn slim" onClick={() => moveTo(x, s.today)}>Today</button>
             <button className="btn slim" aria-expanded={pick === x.id} onClick={() => setPick(pick === x.id ? null : x.id)}>Pick day</button>
             <button className="btn slim" onClick={() => patchTask(x, { done: true })}>Done</button>
             <button className="btn slim danger" onClick={() => del(x)}>Delete</button>
           </div>
-          {pick === x.id && <div className="pick"><DayPicker value={x.day} min={s.today} onChange={day => { setPick(null); patchTask(x, { day }); }} /></div>}
+          {pick === x.id && <div className="pick"><DayPicker value={x.day} min={s.today} onChange={day => { setPick(null); moveTo(x, day); }} /></div>}
         </div>
       ))}
       {tasks.length > 5 && <button className="more" onClick={() => setAll(!all)}>{all ? 'Show fewer' : `Show all ${tasks.length}`}</button>}
@@ -150,7 +169,7 @@ function DoneRow({ x }: { x: Task }) {
 }
 
 function Block({ x, over, open, onExpand, onClose }: { x: Task; over: boolean; open: boolean; onExpand: () => void; onClose: () => void }) {
-  const { s, act, ask, patchTask, optimistic, notify, now } = useDocket();
+  const { s, act, ask, patchTask, optimistic, notify, undo, now } = useDocket();
   const del = useDelete();
   const [copied, setCopied] = useState('');
   const [mode, setMode] = useState<'' | 'edit' | 'give'>('');
@@ -294,7 +313,7 @@ function Block({ x, over, open, onExpand, onClose }: { x: Task; over: boolean; o
               <button className="btn claude" onClick={() => ask(Q.draft(x))}>Draft it</button>
               <button className="btn claude" aria-expanded={mode === 'give'} onClick={() => setMode(mode === 'give' ? '' : 'give')}>Give to Claude</button>
               <button className="btn" onClick={() => setMode('edit')}>Edit</button>
-              <button className="btn" onClick={() => { patchTask(x, { day: addDays(s.today, 1) }); onClose(); }}>Tomorrow</button>
+              <button className="btn" onClick={async () => { onClose(); if (await patchTask(x, { day: addDays(s.today, 1) })) undo('Moved to tomorrow: ' + x.title, undoDay([x])); }}>Tomorrow</button>
               <button className="btn danger" onClick={() => { onClose(); del(x); }}>Delete</button>
               {!origin && <button className="set-origin" onClick={() => { setEditAt('origin'); setMode('edit'); }}>Set origin</button>}
             </div>

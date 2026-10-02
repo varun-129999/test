@@ -63,7 +63,7 @@ export class DocketError extends Error {}
 
 /** Rough relative cost of each tool call, used to estimate usage between self-reports. */
 export const CALL_WEIGHTS: Record<string, number> = {
-  get_overview: 1, list_tasks: 1, add_task: 1, add_tasks: 1.5, update_task: 0.5, update_tasks: 0.5, complete_task: 0.5, delete_task: 0.5,
+  get_overview: 1, list_tasks: 1, add_task: 1, add_tasks: 1.5, update_task: 0.5, update_tasks: 0.5, complete_task: 0.5, delete_task: 0.5, restore_task: 0.5,
   set_steps: 2, add_steps: 0.5, set_step: 0.25, propose_moves: 2, resolve_moves: 0.25, attach_draft: 3, attach_result: 3,
   get_usage: 0.25, set_usage: 0.25, set_settings: 0.25, get_pending_requests: 0.5, complete_request: 0.5, hold_request: 0.25,
   save_review: 2, set_week_plan: 0.5, record_emails: 2, suggest_tasks: 1,
@@ -110,6 +110,10 @@ const ORDER_SQL = `day, at IS NULL, at, ${RANK_SQL}, created_at`;
 const isTime = (v: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
 const isClaudeLink = (v: string) => /^https:\/\/claude\.ai\/(code|chat)\//i.test(v.trim());
 const MAX_STEPS = 30;
+// Soft delete: every read of tasks carries this (the purge and restore are the only exceptions).
+const LIVE = 'deleted_at IS NULL';
+/** How long a deleted task can be restored before the hourly purge removes it. */
+export const RESTORE_DAYS = 30;
 
 type Row = Record<string, any>;
 
@@ -301,13 +305,13 @@ export class Store {
   }
 
   getTask(taskId: string): Task {
-    const r = this.db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId) as Row | undefined;
+    const r = this.db.prepare(`SELECT * FROM tasks WHERE id = ? AND ${LIVE}`).get(taskId) as Row | undefined;
     if (!r) throw new DocketError(`No task with id "${taskId}". Call list_tasks or get_overview for current ids.`);
     return this.rowToTask(r);
   }
 
   private taskWhere(f: TaskFilter) {
-    const where: string[] = [], args: (string | number)[] = [];
+    const where: string[] = [LIVE], args: (string | number)[] = [];
     if (f.ids?.length) { where.push(`id IN (${f.ids.map(() => '?').join(', ')})`); args.push(...f.ids); }
     if (f.from) { where.push('day >= ?'); args.push(f.from); }
     if (f.to) { where.push('day <= ?'); args.push(f.to); }
@@ -320,7 +324,7 @@ export class Store {
     }
     // Asking for tasks by id means those tasks, done or not.
     if (!(f.include_done ?? !!f.ids?.length)) where.push('done = 0');
-    return { sql: where.length ? ' WHERE ' + where.join(' AND ') : '', args };
+    return { sql: ' WHERE ' + where.join(' AND '), args };
   }
 
   /** Tasks by day, then time (timed first), then priority. */
@@ -344,7 +348,7 @@ export class Store {
   /** Open minutes per day. */
   dayLoad(days: string[]): Record<string, number> {
     const out: Record<string, number> = {};
-    const q = this.db.prepare('SELECT COALESCE(SUM(est_min), 0) n FROM tasks WHERE day = ? AND done = 0');
+    const q = this.db.prepare(`SELECT COALESCE(SUM(est_min), 0) n FROM tasks WHERE day = ? AND done = 0 AND ${LIVE}`);
     for (const d of [...new Set(days)].sort()) out[d] = (q.get(d) as Row).n as number;
     return out;
   }
@@ -447,7 +451,8 @@ export class Store {
     if (!t.repeat) return;
     const series = t.series_id ?? t.id;
     const day = nextOccurrence(t.repeat, t.day, t.repeat_from, this.today());
-    if (this.db.prepare('SELECT 1 FROM tasks WHERE series_id = ? AND id != ? AND day >= ? LIMIT 1').get(series, t.id, day)) return;
+    // A deleted later instance does not count: completing again makes a live one.
+    if (this.db.prepare(`SELECT 1 FROM tasks WHERE series_id = ? AND id != ? AND day >= ? AND ${LIVE} LIMIT 1`).get(series, t.id, day)) return;
     if (!t.series_id) this.db.prepare('UPDATE tasks SET series_id = ? WHERE id = ?').run(series, t.id);
     const nextId = this.insertTask({
       title: t.title, area: t.area, project: t.project, day, est: t.est, priority: t.priority, energy: t.energy, notes: t.notes, link: t.link,
@@ -526,11 +531,51 @@ export class Store {
     return { task, message: `Added "${task.title}" for ${when}${task.at ? ' at ' + task.at : ''}${rep}.` };
   }
 
+  /** Soft delete: the row stays, hidden from every read, restorable for RESTORE_DAYS. */
   deleteTask(taskId: string) {
     const t = this.getTask(taskId);
-    this.db.prepare('DELETE FROM tasks WHERE id = ?').run(taskId);
+    this.db.prepare('UPDATE tasks SET deleted_at = ? WHERE id = ?').run(this.stamp(), taskId);
     this.changed();
     return t;
+  }
+
+  private deletedRow(taskId: string): Row | undefined {
+    return this.db.prepare('SELECT * FROM tasks WHERE id = ? AND deleted_at IS NOT NULL').get(taskId) as Row | undefined;
+  }
+
+  /** Brings a deleted task back as it was (steps included). Restoring a live task changes nothing. */
+  restoreTask(taskId: string): Task {
+    if (!this.deletedRow(taskId)) {
+      if (this.db.prepare(`SELECT 1 FROM tasks WHERE id = ? AND ${LIVE}`).get(taskId)) return this.getTask(taskId);
+      throw new DocketError(`No deleted task with id "${taskId}". Deleted tasks can be restored for ${RESTORE_DAYS} days.`);
+    }
+    this.db.prepare('UPDATE tasks SET deleted_at = NULL, updated_at = ? WHERE id = ?').run(this.stamp(), taskId);
+    this.changed();
+    return this.getTask(taskId);
+  }
+
+  /** "Delete forever": only a task that is already deleted, so one call can never lose a live task. */
+  purgeTask(taskId: string) {
+    const r = this.deletedRow(taskId);
+    if (!r) throw new DocketError(`No deleted task with id "${taskId}". Delete it first.`);
+    this.db.prepare('DELETE FROM tasks WHERE id = ? AND deleted_at IS NOT NULL').run(taskId);
+    this.changed();
+    return { purged: r.title as string };
+  }
+
+  /** The hourly sweep: hard-deletes tasks deleted more than `days` ago (steps and moves cascade). */
+  purgeDeletedOlderThan(days = RESTORE_DAYS): number {
+    const cutoff = nowIso(new Date(this.now().getTime() - days * 864e5));
+    const n = Number(this.db.prepare('DELETE FROM tasks WHERE deleted_at IS NOT NULL AND deleted_at < ?').run(cutoff).changes);
+    if (n) this.changed();
+    return n;
+  }
+
+  /** Recently deleted, newest first: what the app offers to restore. */
+  deletedTasks(limit = 50): { id: string; title: string; day: string; area: Area; deleted_at: string }[] {
+    const since = nowIso(new Date(this.now().getTime() - RESTORE_DAYS * 864e5));
+    return (this.db.prepare('SELECT id, title, day, area, deleted_at FROM tasks WHERE deleted_at >= ? ORDER BY deleted_at DESC, rowid DESC LIMIT ?').all(since, limit) as Row[])
+      .map(r => ({ id: r.id, title: r.title, day: r.day, area: r.area, deleted_at: r.deleted_at }));
   }
 
   private writeSteps(taskId: string, steps: Step[]) {
@@ -608,7 +653,7 @@ export class Store {
   // ---------- moves ----------
 
   private moves(status = 'pending'): Move[] {
-    return (this.db.prepare(`SELECT m.*, t.title, t.day AS from_day FROM moves m JOIN tasks t ON t.id = m.task_id WHERE m.status = ? ORDER BY m.created_at, m.rowid`).all(status) as Row[])
+    return (this.db.prepare(`SELECT m.*, t.title, t.day AS from_day FROM moves m JOIN tasks t ON t.id = m.task_id WHERE m.status = ? AND t.${LIVE} ORDER BY m.created_at, m.rowid`).all(status) as Row[])
       .map(r => ({ id: r.id, task_id: r.task_id, title: r.title, from_day: r.from_day, to_day: r.to_day, reason: r.reason, status: r.status, created_at: r.created_at }));
   }
 
@@ -641,7 +686,8 @@ export class Store {
   }
 
   private moveRow(moveId: string) {
-    const m = this.db.prepare('SELECT * FROM moves WHERE id = ?').get(moveId) as Row | undefined;
+    // A move for a deleted task is hidden like the task.
+    const m = this.db.prepare(`SELECT m.* FROM moves m JOIN tasks t ON t.id = m.task_id WHERE m.id = ? AND t.${LIVE}`).get(moveId) as Row | undefined;
     if (!m) throw new DocketError(`No move with id "${moveId}"`);
     return m;
   }
@@ -658,7 +704,7 @@ export class Store {
     if (!sel.all && !sel.move_ids?.length) throw new DocketError('Pass move_ids, or all: true for every pending move.');
     const resolved = tx(this.db, () => {
       const rows = sel.all
-        ? this.db.prepare(`SELECT * FROM moves WHERE status = 'pending'`).all() as Row[]
+        ? this.db.prepare(`SELECT m.* FROM moves m JOIN tasks t ON t.id = m.task_id WHERE m.status = 'pending' AND t.${LIVE}`).all() as Row[]
         : [...new Set(sel.move_ids)].map(x => this.moveRow(x));
       for (const m of rows) this.applyMove(m, approve);
       return rows.length;
@@ -826,7 +872,7 @@ export class Store {
 
   pendingRequests(): PendingRequest[] {
     return (this.db.prepare(`SELECT p.*, t.origin_kind AS t_kind, t.origin_title AS t_title, t.origin_url AS t_url
-      FROM pending_requests p LEFT JOIN tasks t ON t.id = p.task_id WHERE p.status = 'pending' ORDER BY p.created_at, p.rowid`).all() as Row[])
+      FROM pending_requests p LEFT JOIN tasks t ON t.id = p.task_id AND t.${LIVE} WHERE p.status = 'pending' ORDER BY p.created_at, p.rowid`).all() as Row[])
       .map(r => {
         const origin = pick(r.t_kind, r.t_title, r.t_url);
         return origin ? { ...this.rowToRequest(r), origin } : this.rowToRequest(r);
@@ -1001,6 +1047,29 @@ export class Store {
 
   private deleteMeta(key: string) { this.db.prepare('DELETE FROM meta WHERE key = ?').run(key); }
 
+  // ---------- calendar feed ----------
+
+  /** The secret in the calendar feed's URL, or null when there is no feed. */
+  feedKey(): string | null { return this.meta('feed_key'); }
+
+  /** Creates the feed key once; later calls return the same one until it is revoked. */
+  createFeedKey(): string {
+    const cur = this.feedKey();
+    if (cur) return cur;
+    const key = randomBytes(16).toString('hex');
+    this.setMeta({ feed_key: key });
+    return key;
+  }
+
+  /** Stops the old URL working; the next create makes a new one. */
+  revokeFeedKey() { this.deleteMeta('feed_key'); }
+
+  /** What the calendar feed shows: live tasks, open and done, from a week ago to 60 days ahead. */
+  feedTasks(): Task[] {
+    const today = this.today();
+    return this.listTasks({ from: addDays(today, -7), to: addDays(today, 60), include_done: true });
+  }
+
   // ---------- overview ----------
 
   /** What Claude reads at the start of a Docket conversation: small on purpose, it is paid for every time. */
@@ -1057,12 +1126,13 @@ export class Store {
   state() {
     const today = this.today();
     const since = addDays(today, -60);
-    const tasks = (this.db.prepare('SELECT * FROM tasks WHERE done = 0 OR day >= ? OR completed_at >= ? ORDER BY day, created_at').all(since, since) as Row[]).map(r => this.rowToTask(r));
+    const tasks = (this.db.prepare(`SELECT * FROM tasks WHERE ${LIVE} AND (done = 0 OR day >= ? OR completed_at >= ?) ORDER BY day, created_at`).all(since, since) as Row[]).map(r => this.rowToTask(r));
     return {
       today,
       now: localIso(this.now()),
       tz: tzName(),
       tasks,
+      deleted: this.deletedTasks(),
       moves: this.pendingMoves(),
       held: this.heldRequests(),
       requests: this.pendingRequests(),

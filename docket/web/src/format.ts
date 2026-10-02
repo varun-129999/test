@@ -50,3 +50,12 @@ export const todayIn = (tz: string, now = Date.now()) => {
     return `${p.year}-${p.month}-${p.day}`;
   } catch { return iso(new Date(now)); }
 };
+/** The local day and "14:32" of a moment in a time zone (the server's), falling back to the device's. */
+export const dayTimeIn = (tz: string, at: string | number): { day: string; time: string } | null => {
+  const ms = typeof at === 'number' ? at : Date.parse(at);
+  if (!Number.isFinite(ms)) return null;
+  try {
+    const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(ms).map(x => [x.type, x.value]));
+    return { day: `${p.year}-${p.month}-${p.day}`, time: `${p.hour}:${p.minute}` };
+  } catch { return { day: iso(new Date(ms)), time: hhmm(ms) }; }
+};

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AREA, AREAS, byPlan, dayLoad, derive, useDocket } from '../ctx';
+import { AREA, AREAS, byPlan, dayLoad, derive, doneWeek, useDocket } from '../ctx';
 import { DOW, MON, addDays, ago, dt, fmtDay, fmtDur, isDay, isoWeek, plural, weekStart } from '../format';
 import { Q, reviewWeek } from '../prompts';
 import type { Task } from '../types';
@@ -85,6 +85,7 @@ export function Week() {
           {items.map(x => <TaskRow key={x.id} x={x} />)}
           {items.length === 0 && <div className="muted-line" style={{ padding: '10px 0' }}>Nothing planned.</div>}
           {sel >= t && <AddTaskRow day={sel} />}
+          {ws <= cur && <DoneWeek ws={ws} isCur={isCur} />}
           {groups.size > 0 && (
             <>
               <h2 className="section-title">Later</h2>
@@ -99,6 +100,35 @@ export function Week() {
         </>
       )}
     </>
+  );
+}
+
+/** What got done in the shown week, by the day it was completed, with the time and a per-area total. */
+function DoneWeek({ ws, isCur }: { ws: string; isCur: boolean }) {
+  const { s } = useDocket();
+  const dw = doneWeek(s, ws);
+  const head = isCur ? 'Done this week' : 'Done that week';
+  if (dw.older && !dw.n) return (<><h2 className="section-title">{head}</h2><div className="muted-line">Older weeks are not loaded.</div></>);
+  return (
+    <div className="done-week">
+      <h2 className="section-title">{head}{dw.n ? ` · ${dw.n} · ${fmtDur(dw.min)}` : ''}</h2>
+      {dw.areas.length > 0 && <div className="sub" style={{ marginTop: 0 }}>{dw.areas.map(a => `${a.area} ${fmtDur(a.min)}`).join(' · ')}</div>}
+      {dw.groups.map(g => (
+        <div key={g.day} className="done-day">
+          <div className="done-day-head">{g.day === s.today ? 'Today' : fmtDay(g.day)}</div>
+          {g.items.map(({ x, time }) => (
+            <div key={x.id} className="list-row done-item">
+              <span className="sq" style={{ background: (AREA[x.area] ?? AREA.Work).c }} aria-label={x.area} />
+              <span className="t">{x.title}</span>
+              <span className="m">{fmtDur(x.est)}</span>
+              <span className="m when">{time}</span>
+            </div>
+          ))}
+        </div>
+      ))}
+      {!dw.n && <div className="muted-line">{isCur ? 'Nothing done yet this week.' : 'Nothing done that week.'}</div>}
+      {dw.older && <div className="muted-line">Older weeks are not loaded.</div>}
+    </div>
   );
 }
 

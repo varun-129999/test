@@ -23,13 +23,13 @@ async function connect() {
 }
 
 const TOOLS = [
-  'get_overview', 'list_tasks', 'add_task', 'add_tasks', 'update_task', 'update_tasks', 'complete_task', 'delete_task',
+  'get_overview', 'list_tasks', 'add_task', 'add_tasks', 'update_task', 'update_tasks', 'complete_task', 'delete_task', 'restore_task',
   'set_steps', 'add_steps', 'set_step', 'propose_moves', 'resolve_moves', 'attach_draft', 'attach_result',
   'get_usage', 'set_usage', 'set_settings', 'get_pending_requests', 'complete_request', 'hold_request',
   'save_review', 'set_week_plan', 'record_emails', 'suggest_tasks',
 ];
 
-test('exposes exactly the documented 25 tools, each weighted, described and annotated', async () => {
+test('exposes exactly the documented 26 tools, each weighted, described and annotated', async () => {
   const { client } = await connect();
   const tools = (await client.listTools()).tools;
   assert.deepEqual(tools.map(t => t.name).sort(), [...TOOLS].sort());

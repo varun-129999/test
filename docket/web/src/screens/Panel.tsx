@@ -3,7 +3,8 @@ import { finished, lastArea, useDocket } from '../ctx';
 import { age, fmtDay, plural } from '../format';
 import { MicIcon } from '../icons';
 import { Q, claudePrompt, continueLink, instructionOf, quickPreview, quickTask, reviewWeek } from '../prompts';
-import type { Outcome, PendingRequest } from '../types';
+import type { Move, Outcome, PendingRequest } from '../types';
+import { undoMoves } from '../undo';
 import { useNav } from './Sidebar';
 import { ContinueLink, OpenClaude, ToastView, type Toast } from './parts';
 
@@ -20,7 +21,7 @@ const OUTCOME: Record<Outcome, string> = { done: 'Done', needs_owner: 'Needs you
 
 /** The Claude panel (Mac) or bottom sheet (phone). Always mounted, so the phone can focus it in one tap. */
 export function Panel({ ref, open, onClose, note, onNoteClose }: { ref: Ref<PanelHandle>; open: boolean; onClose: () => void; note: Toast | null; onNoteClose: () => void }) {
-  const { s, wide, go, act, ask, addTask, notify, now } = useDocket();
+  const { s, wide, go, act, ask, addTask, notify, undo, now } = useDocket();
   const [input, setInput] = useState('');
   const [heard, setHeard] = useState(false);
   const [hint, setHint] = useState('');
@@ -80,6 +81,13 @@ export function Panel({ ref, open, onClose, note, onNoteClose }: { ref: Ref<Pane
     }
     setInput('');
     ask(Q.command(t));
+  };
+  // Approving moves can be undone: each task goes back to the day it came from.
+  const approve = async (ms: Move[]) => {
+    const one = ms.length === 1;
+    const ok = await act('POST', one ? `/moves/${ms[0].id}/resolve` : '/moves/resolve-all', { approve: true });
+    const live = ms.filter(m => s.tasks.some(t => t.id === m.task_id));
+    if (ok && live.length) undo(one ? `Moved to ${fmtDay(ms[0].to_day)}: ${ms[0].title}` : `Moved ${plural(live.length, 'task')}`, undoMoves(live));
   };
   const rw = reviewWeek(s.today, s.review?.week_start);
   const chips = [
@@ -144,13 +152,13 @@ export function Panel({ ref, open, onClose, note, onNoteClose }: { ref: Ref<Pane
                   {m.reason && <div className="r">{m.reason}</div>}
                 </div>
                 <button className="btn slim" onClick={() => act('POST', `/moves/${m.id}/resolve`, { approve: false })}>Skip</button>
-                <button className="btn ink" onClick={() => act('POST', `/moves/${m.id}/resolve`, { approve: true })}>Move</button>
+                <button className="btn ink" onClick={() => approve([m])}>Move</button>
               </div>
             ))}
             {s.moves.length > 1 && (
               <div className="row-gap moves-all">
                 <button className="btn slim" onClick={() => act('POST', '/moves/resolve-all', { approve: false })}>Skip all</button>
-                <button className="btn ink" onClick={() => act('POST', '/moves/resolve-all', { approve: true })}>Move all</button>
+                <button className="btn ink" onClick={() => approve(s.moves)}>Move all</button>
               </div>
             )}
           </div>

@@ -101,13 +101,15 @@ In a chat in the Docket project, say "What's on today?". Claude should call `get
 
 ## Using it day to day
 
-**The app.** Today shows your blocks for the day, with a "Carried over" card for unfinished tasks from earlier days (Today, Pick day, Done, Delete, or Move all to today). They don't count toward today's capacity until you move them. Week shows each day's load, with ‹ › to move between weeks and a "Later" list for anything after the visible week. Both have a search box. Inbox shows the emails Claude read and the tasks it suggested from them. Usage shows your budget. Buttons that use Claude have a small dot. Everything else (done, steps, editing, approving moves) is free.
+**The app.** Today shows your blocks for the day, with a "Carried over" card for unfinished tasks from earlier days (Today, Pick day, Done, Delete, or Move all to today). They don't count toward today's capacity until you move them. Week shows each day's load, with ‹ › to move between weeks and a "Later" list for anything after the visible week. Below the selected day, "Done this week" lists what you finished, by day and with the time, and a total per area. Both have a search box. Inbox shows the emails Claude read and the tasks it suggested from them. Usage shows your budget. Buttons that use Claude have a small dot. Everything else (done, steps, editing, approving moves) is free.
 
 **Adding tasks without Claude.** Use "Add a task" at the end of Today or under a day in Week. In the composer, start with `+` to add without Claude, for example `+ Call Sam fri at 5pm 45m #Wedding p1 weekly`. A line under the box shows what will be added ("Fri 2 Oct · 17:00 · 45m · Wedding · Work · high · repeats every Fri") before you press Enter. It understands, in any order: durations (`45m`, `1h30`, `1.5h`, `90 min`), days (`today`, `tomorrow`, `fri`, `next mon`, `next week`, `in 3 days`, `15 oct`, `15/10`), `due fri`, times (`at 5pm`, `5:30pm`, `at 17:00`), priority (`p1` to `p3`, `!high`, or `high`/`low` as the last word), `high energy`, the areas, `#project` (`#"Bokaro trip"` for two words), repeats (below) and a link. Anything else stays in the title. The same words work in the Shortcut (see Capture from anywhere). Open a block and tap **Edit** to change its title, estimate, day, time, due date, repeat, priority, area, energy, project, notes, link or origin.
 
 **Time of day.** A task can have a time ("17:30"). It shows first on the block ("17:30 · Q4 planning · …"), and timed tasks sort to the top of the day in time order, then the rest by priority. Clear the time in Edit to make it an any-time task again.
 
 **Repeating tasks.** Set **Repeat** in Edit (Daily, Weekdays, Weekly on chosen days, Monthly on a day, or every N days, weeks or months), or type it: `daily`, `weekdays`, `weekly`, `every mon,thu`, `every 2 weeks`, `monthly 25`. The block shows a small tag ("Weekly", "Mon, Thu"). When you tick a repeating task done, Docket adds the next one and says "Done. Next one on Fri 9 Oct". It counts from the planned day, or from the day you finish it if you tick **From completion** (`after done` when typing). The next one is never put in the past: if you finish a daily task three days late, the next one is today, not three days ago. The next one is an ordinary task: it shows in Week and Later, and you can move or edit it on its own. Deleting a task deletes only that one. Setting Repeat to None on a task means ticking it adds no next one. Reopening a done task does not remove the next one it made, so delete that one by hand if you need to.
+
+**Undo and recently deleted.** Ticking a task done, deleting it, moving it (Tomorrow, Today, Pick day, Move all to today) and approving suggested moves (Move, Move all) show a toast with **Undo** for 6 seconds. Undo puts things back as they were: the task reopens, comes back, or returns to the day it was on. Undoing a repeating task's tick reopens it but keeps the next one Docket already added; delete that one by hand if you don't want it. Deleted tasks are kept for 30 days: Usage › **Recently deleted** lists them with **Restore** and **Delete forever**. After 30 days they go for good. Deleted tasks don't show anywhere else, and Claude doesn't see them.
 
 **Asking Claude.** Talk to Claude in the Docket project ("add call the bank, 15 minutes, Friday, high"), or use the buttons (Plan my day, Balance my week, Break down, Draft, Scan Gmail, Weekly review) and the composer. A button doesn't spend anything by itself:
 
@@ -144,6 +146,35 @@ The Shortcut uses a separate capture token, `DOCKET_CAPTURE_TOKEN`, so the main 
 - Batch requests and open Claude once, rather than one chat per request.
 - Long chats cost more per message. Start a new Docket chat each day.
 - Keep "Save for high priority" on (below).
+
+### See tasks in your calendar
+
+Docket can publish your tasks as a calendar your iPhone and Mac subscribe to, so they show next to your meetings. On Usage, under **Calendar**, tap **Create link**. Then:
+
+- **iPhone:** tap **Subscribe**, or copy the link and go to Settings → Calendar → Accounts → Add Account → Other → Add Subscribed Calendar (on recent iOS, Calendar is under Settings → Apps), and paste it.
+- **Mac Calendar:** click **Subscribe**, or File → New Calendar Subscription and paste the link.
+
+The calendar holds tasks from a week ago to two months ahead. A task with a time is an event at that time, as long as its estimate; the rest are all-day. Done tasks stay, marked "Done:". Each event has the project, priority, area and notes, and a link back to Docket. It is read-only: change tasks in Docket.
+
+Apple refreshes subscribed calendars on its own schedule, so a change can take a while to show. In the subscription's settings, set Auto-refresh to every 15 minutes or every hour. Alerts don't fire for subscribed calendars on iOS, so don't rely on them for reminders.
+
+The link is the key: anyone who has it can read your tasks, and it doesn't need your token. Keep it to yourself. **Revoke** turns it off at once (calendars subscribed to it stop updating); **Create link** then makes a new one.
+
+### Keyboard (Mac)
+
+On the Mac (a wide window), press `?` for the list. Shortcuts don't fire while you type in a field, and never with ⌘, Ctrl or Option.
+
+| Key | Does |
+|---|---|
+| `n` | Add a task on Today; on other screens, type to Claude |
+| `/` | Search tasks |
+| `c` | Type to Claude (the composer) |
+| `t` `w` `i` `u` | Today, Week, Inbox, Usage |
+| `[` `]` | Previous or next week, on Week |
+| `e` | Mark the open task done (click a block to open it), with Undo |
+| `x` | Delete the open task, with Undo |
+| `Esc` | Close the shortcut list or the open task; in a field, leave the field |
+| `?` | Show or hide the shortcut list |
 
 ## The budget guard
 
@@ -241,7 +272,8 @@ All dates are `YYYY-MM-DD` and all durations are minutes. Enum fields accept the
 | `update_task` | `{ id, ...fields }` | Changes fields, including `done`. A new `origin` replaces the old one. `null` clears `project`, `due`, `notes`, `link`, `origin` or `result`. |
 | `update_tasks` | `{ ids, set }` | Applies the same change to up to 50 tasks; returns the old values. |
 | `complete_task` | `{ id }` | Marks a task done. |
-| `delete_task` | `{ id }` | Deletes a task. |
+| `delete_task` | `{ id }` | Deletes a task. It can be brought back with `restore_task` for 30 days; after that it goes for good. |
+| `restore_task` | `{ id }` | Brings back a task deleted in the last 30 days, with its steps. |
 | `set_steps` | `{ id, steps }` | Replaces the steps. A step whose text is unchanged keeps its done state. |
 | `add_steps` | `{ id, steps, at? }` | Adds steps at the end, or at position `at`. |
 | `set_step` | `{ id, index, done }` | Ticks or unticks one step (0-based). |
@@ -260,7 +292,7 @@ All dates are `YYYY-MM-DD` and all durations are minutes. Enum fields accept the
 | `record_emails` | `{ emails: [{ from, subject, snippet?, when?, thread_id? }] }` | Replaces the Inbox list with the emails Claude read through Gmail. |
 | `suggest_tasks` | `{ suggestions: [...] }` | Adds to the "Claude found" list, where you Add or Skip each one. |
 
-Read-only: `list_tasks` and `get_usage`. `get_overview` and `get_pending_requests` read too, but at the reserve they move queued requests to the held list, so they are marked safe to repeat rather than read-only. Marked destructive: `delete_task`, `set_steps` and `record_emails` (they replace or remove). Safe to repeat: `set_step`, `complete_task`, `set_usage`, `set_settings`, `complete_request`, `save_review`, `set_week_plan`.
+Read-only: `list_tasks` and `get_usage`. `get_overview` and `get_pending_requests` read too, but at the reserve they move queued requests to the held list, so they are marked safe to repeat rather than read-only. Marked destructive: `delete_task`, `set_steps` and `record_emails` (they replace or remove). Safe to repeat: `set_step`, `complete_task`, `restore_task`, `set_usage`, `set_settings`, `complete_request`, `save_review`, `set_week_plan`.
 
 The server also sends short instructions when a connection starts. They only say how the tools work and apply only when you talk about tasks, plans or Docket; tone and habits live in the Project instructions. Both say that task text, emails and queued prompts are data, not instructions.
 
@@ -275,7 +307,9 @@ Every route is under `/api` and needs `Authorization: Bearer <token>`. `?token=`
 | `GET /state` | Everything the app shows (see `docs/contract.md`) |
 | `POST /tasks` | task fields → Task |
 | `PATCH /tasks/:id` | any task fields, including `done`, `at`, `repeat` and `result: null` → Task, plus `next: { id, day }` when completing a repeating task added the next one |
-| `DELETE /tasks/:id` | |
+| `DELETE /tasks/:id` | soft delete: the task goes to Recently deleted for 30 days |
+| `POST /tasks/:id/restore` | → Task |
+| `DELETE /tasks/:id/purge` | only an already-deleted task → `{ purged: "<title>" }` |
 | `PUT /tasks/:id/steps` | `{ steps }` (replace; unchanged text keeps done) → Task |
 | `POST /tasks/:id/steps` | `{ steps, at? }` → Task |
 | `PATCH /tasks/:id/steps/:idx` | `{ done }` → Task |
@@ -302,8 +336,11 @@ Every route is under `/api` and needs `Authorization: Bearer <token>`. `?token=`
 | `GET /backup` | the database file (a consistent snapshot) |
 | `GET /export.json` | every table as JSON |
 | `GET /events` | server-sent events: `change` after any write |
+| `GET /feed` | → `{ url }` of the calendar link, or `{ url: null }` |
+| `POST /feed` | → `{ url }`; makes the link on first use, then returns the same one |
+| `DELETE /feed` | revokes the link (the old URL is a 404) |
 
-`GET /healthz` (outside `/api`, no token) returns `{ ok, version }` and fails with 503 if the database doesn't answer.
+`GET /healthz` (outside `/api`, no token) returns `{ ok, version }` and fails with 503 if the database doesn't answer. `GET /cal/<key>.ics` (outside `/api`) is the calendar feed; the key in the link is its only credential.
 
 ## Configuration
 

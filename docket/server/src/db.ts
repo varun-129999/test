@@ -178,6 +178,12 @@ const MIGRATIONS: ((db: DatabaseSync) => void)[] = [
     for (const col of ['at TEXT', 'repeat TEXT', `repeat_from TEXT NOT NULL DEFAULT 'planned'`, 'series_id TEXT']) addColumn(db, 'tasks', col);
     db.exec('CREATE INDEX IF NOT EXISTS tasks_series ON tasks(series_id)');
   },
+  // v5: soft delete. A deleted task keeps its row (and steps) with deleted_at set, so it can be
+  // restored; every read filters it out, and rows deleted over 30 days ago are purged hourly.
+  db => {
+    addColumn(db, 'tasks', 'deleted_at TEXT');
+    db.exec('CREATE INDEX IF NOT EXISTS tasks_deleted ON tasks(deleted_at)');
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

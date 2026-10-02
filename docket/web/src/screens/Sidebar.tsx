@@ -1,5 +1,6 @@
 import { AREA, AREAS, derive, useDocket, type Screen } from '../ctx';
 import { addDays, fmtDur, weekStart } from '../format';
+import { emitKey } from '../keys';
 
 export function useNav(): { key: Screen; label: string; count: string | number; extra: string }[] {
   const { s } = useDocket();
@@ -55,6 +56,7 @@ export function Sidebar() {
         })}
       </div>
       <div style={{ flex: 1 }} />
+      <button className="keys-hint" onClick={() => emitKey('help')}>Keyboard shortcuts <kbd>?</kbd></button>
       <button className="usage-mini" onClick={() => go('usage')}>
         <div className="ring" style={{ width: 36, height: 36, background: ringBg(d.left) }}>
           <div className="ring-hole" style={{ width: 28, height: 28, background: 'var(--card)' }} />

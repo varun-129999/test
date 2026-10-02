@@ -1,4 +1,4 @@
-# Docket reference: data, budget guard, tools and API (0.4.0)
+# Docket reference: data, budget guard, tools and API (0.5.0)
 
 This is the reference for what docket-server stores and exposes. The validation rules and length limits are in `server/src/schemas.ts`, shared by the MCP tools and the REST API. Dates are local `YYYY-MM-DD` strings in the server's `TZ`; durations are minutes; times such as `created_at` are ISO timestamps.
 
@@ -36,7 +36,17 @@ Completing a recurring task (`update_task {done: true}`, `update_tasks`, `comple
 - `done`: the rule's next day after today.
 - `weekly:Mon,Thu` is the next listed weekday; `monthly:31` clamps to the month's last day (30 Nov, then 31 Dec); `every:N:months` keeps the day of the month, clamped.
 
-It is made once: completing again, or reopening and completing, adds nothing while the series already has an instance on or after that day. Reopening does not delete the next instance. Deleting a task deletes only that instance. Overdue instances are carried over like any other task.
+It is made once: completing again, or reopening and completing, adds nothing while the series already has a live (not deleted) instance on or after that day. Reopening does not delete the next instance. Deleting a task deletes only that instance. Overdue instances are carried over like any other task.
+
+### 1.2 Deleting and restoring (schema v5, 0.5.0)
+
+Deleting a task (`delete_task`, `DELETE /api/tasks/:id`) is a soft delete: the row keeps its steps and moves and gets `tasks.deleted_at` (an ISO timestamp, not part of the Task shape). Every read leaves deleted tasks out: `list_tasks` (also by `ids` and `q`), `get_overview` (days, overdue, loads, `pending_moves`), `GET /api/state` `tasks` and `moves`, `day_load`, the origin carried by pending requests, and the check that stops a recurring task making a second next instance. Writes treat a deleted task as missing ("No task with id …"), and its pending moves can't be resolved (`resolve_moves { all: true }` skips them).
+
+- `restore_task { id }` / `POST /api/tasks/:id/restore` clears `deleted_at`: the task comes back with its steps and pending moves. Restoring a live task changes nothing.
+- `DELETE /api/tasks/:id/purge` ("Delete forever") hard-deletes a task that is already deleted (its steps and moves go with it); a live task is a 400 ("Delete it first").
+- Hourly, right after the snapshot (and only when the snapshot succeeded), tasks deleted more than 30 days ago are removed for good (`store.purgeDeletedOlderThan(30)`).
+- `GET /api/state` `deleted` lists what can be restored: `[{ id, title, day, area, deleted_at }]`, deleted in the last 30 days, newest first, at most 50.
+- New queries on `tasks` must add `deleted_at IS NULL` (`LIVE` in `store.ts`). The exports (`/api/backup`, `/api/export.json`) and snapshots keep deleted rows.
 
 ### PendingRequest
 
@@ -95,7 +105,7 @@ What the owner wants from a week: `{ week_start, text, updated_at }`, one per Mo
 - `request_id` on `set_steps`, `attach_draft`, `attach_result` and `save_review` only links the write to its request; it bypasses nothing.
 - Priorities of the app's requests: Plan my day, Balance my week and composer text are high; Scan Gmail and Weekly review are med; Break down, Estimate, Draft and Give to Claude use the task's priority.
 
-## 3. MCP tools (25)
+## 3. MCP tools (26)
 
 Served at `/mcp` (Streamable HTTP, stateless) and over stdio. Tool errors that are safe to show come back as `isError` with a plain message; anything unexpected is logged on the server and reported as "Docket hit an internal error; try again or tell the owner."
 
@@ -108,7 +118,8 @@ Served at `/mcp` (Streamable HTTP, stateless) and over stdio. Tool errors that a
 | `update_task` | `{ id, ...patch }` (task fields, `origin` or `origin: null`, `at`/`repeat` or null, `done`, `result: null`) | Task, plus `next: { id, day }` when `done: true` created the next instance of a recurring task. |
 | `update_tasks` | `{ ids, set }` | `{ updated: n, before: [{ id, ...old values of the changed fields }], next?: [{ id, day }] }` (`origin` as an object, or null). |
 | `complete_task` | `{ id }` | Marks the task done; the Task, plus `next: { id, day }` when it created the next instance. Idempotent. |
-| `delete_task` | `{ id }` | Deletes the task. Destructive. |
+| `delete_task` | `{ id }` | Soft-deletes the task (section 1.2): `{ deleted: "<title>", restore_within: "30 days" }`. Destructive. |
+| `restore_task` | `{ id }` | Restores a deleted task: `{ restored: <compact task with day> }`. An error when no deleted task has that id. Idempotent. Added in 0.5.0. |
 | `set_steps` | `{ id, steps: (string \| { text, done? })[] }` | Replaces the steps; a step whose text is unchanged keeps `done`. Destructive. |
 | `add_steps` | `{ id, steps, at? }` | Adds steps at the end, or at position `at`. |
 | `set_step` | `{ id, index, done }` | Ticks or unticks one step (0-based). Idempotent. |
@@ -168,7 +179,9 @@ The capture token (`DOCKET_CAPTURE_TOKEN`, optional, for Apple Shortcuts and Sir
 | `GET /state` | Section 6 |
 | `POST /tasks` | task input → Task |
 | `PATCH /tasks/:id` | task patch, including `origin` (or `null`), `at`, `repeat`, `repeat_from`, `done` and `result: null` → Task, plus `next: { id, day }` when completing it created the next instance |
-| `DELETE /tasks/:id` | |
+| `DELETE /tasks/:id` | soft delete (section 1.2) |
+| `POST /tasks/:id/restore` | → Task |
+| `DELETE /tasks/:id/purge` | only a deleted task → `{ purged: "<title>" }` |
 | `PUT /tasks/:id/steps` | `{ steps }`, replace (unchanged text keeps done) → Task |
 | `POST /tasks/:id/steps` | `{ steps, at? }` → Task |
 | `PATCH /tasks/:id/steps/:idx` | `{ done }` → Task |
@@ -195,14 +208,18 @@ The capture token (`DOCKET_CAPTURE_TOKEN`, optional, for Apple Shortcuts and Sir
 | `GET /events` | server-sent events; `change` after any write |
 | `POST /quick` | `{ text, link?, source? }` (capture token allowed) → `{ task, message }` or, for "ask Claude …", `{ request, message }`. Section 7 |
 | `GET /quick/ping` | (capture token allowed) → `{ ok: true, today }`, to test a Shortcut |
+| `GET /feed` | → `{ url }`, the calendar feed's URL, or `{ url: null }`. Section 8 |
+| `POST /feed` | → `{ url }`; creates the feed key on first use, then returns the same URL |
+| `DELETE /feed` | revokes the key: the old URL is a 404; the next `POST` makes a new one |
 
-Outside `/api`: `GET /healthz` (no token) returns `{ ok, version }`, or 503 when the database doesn't answer.
+Outside `/api`: `GET /healthz` (no token) returns `{ ok, version }`, or 503 when the database doesn't answer. `GET /cal/<key>.ics` is the calendar feed (section 8); the key in the path is its only credential.
 
 ## 6. GET /api/state
 
 ```
 { today, now, tz,
-  tasks: Task[],                 // every open task, plus done tasks from the last 60 days
+  tasks: Task[],                 // every open task, plus done tasks from the last 60 days; never deleted ones
+  deleted: [{ id, title, day, area, deleted_at }],   // deleted in the last 30 days, newest first, at most 50
   moves: Move[], held: HeldRequest[],
   requests: PendingRequest[],    // pending only, each with its task's origin when it has one
   recent: PendingRequest[],      // the last 10 done or cancelled, newest first, with outcome, detail, seen
@@ -241,3 +258,14 @@ Outside `/api`: `GET /healthz` (no token) returns `{ ok, version }`, or 503 when
 | Repeat | `daily`, `every day`, `weekdays`, `every weekday`, `weekly`, `every week` (the day's weekday), `every mon,thu` / `every mon, thu` / `every mon and thu`, `every 2 weeks` (days, months), `monthly` (the day's date), `monthly 25`, `every month on 25`, `every month on the 25th`; `after done` or `from done` sets `repeat_from: 'done'` |
 | Link | the first `http(s)://` URL |
 
+## 8. Calendar feed
+
+A read-only iCalendar (RFC 5545) subscription, so Apple Calendar on the iPhone and Mac shows Docket's tasks.
+
+- The key is `meta.feed_key`, 32 hex characters, made by `POST /api/feed`. The URL is `<proto>://<host>/cal/<key>.ics`, built from the request: the `Host` header and `X-Forwarded-Proto` (Render's proxy sets `https`), else the connection's protocol. `DELETE /api/feed` revokes it. Managing the key needs the main token.
+- `GET /cal/<key>.ics` needs nothing else (calendar apps can't send a header). The key is compared in constant time; no key, a wrong one or a revoked one is a plain-text 404. The response is `text/calendar; charset=utf-8`, `Cache-Control: no-cache`, `Content-Disposition: inline; filename="docket.ics"`.
+- Content: `VCALENDAR` with `VERSION:2.0`, `PRODID:-//Docket//EN`, `CALSCALE:GREGORIAN`, `METHOD:PUBLISH`, `X-WR-CALNAME:Docket`, `X-WR-TIMEZONE:<TZ>`, a refresh hint (`REFRESH-INTERVAL`, `X-PUBLISHED-TTL`: 1 hour; Apple uses the subscription's own setting), one `VTIMEZONE` for the server's zone, and one `VEVENT` per live task (open or done) with `day` from 7 days ago to 60 days ahead.
+- Each `VEVENT`: `UID:<id>@docket`, `DTSTAMP` (now, UTC), `LAST-MODIFIED` (the task's `updated_at`), `SUMMARY` (the title, `Done: ` in front when done), `DESCRIPTION` (lines `Project: …` when set, `Priority: …`, `Area: …`, the notes when set, `Open: <proto>://<host>/`), `CATEGORIES:<area>`, and `STATUS:COMPLETED` when done. A timed task (`at`) is `DTSTART;TZID=<TZ>:YYYYMMDDTHHMMSS` plus `DURATION:PT<est>M`; an untimed one is all-day: `DTSTART;VALUE=DATE` and `DTEND;VALUE=DATE` the next day, `TRANSP:TRANSPARENT`.
+- Text values escape backslash, `;`, `,` and line breaks (`\n`); other control characters are dropped. Lines end in CRLF and are folded at 75 octets (continuations start with a space; a character is never split).
+- `VTIMEZONE`: a zone without daylight saving (Asia/Kolkata) is exact, one `STANDARD` part with `TZOFFSETFROM`/`TZOFFSETTO` `+0530`. For a zone with daylight saving only the offset in force now is emitted, so timed events on the other side of a change show an hour off in calendar apps that use the block. `STATUS:COMPLETED` is a to-do status in RFC 5545; calendar apps ignore it on events, and the `Done: ` prefix is what shows.
+- Code: `server/src/ics.ts` (`buildIcs`, `escapeText`, `fold`, `vtimezone`), `store.feedTasks()`.

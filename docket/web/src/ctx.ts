@@ -1,6 +1,8 @@
 import { createContext, useContext } from 'react';
+import { addDays, dayTimeIn } from './format';
 import type { AskSpec } from './prompts';
 import type { Area, PendingRequest, Priority, State, Task, TaskInput, TaskPatch } from './types';
+import type { UndoCall } from './undo';
 
 export const AREA: Record<Area, { c: string; on: string }> = {
   Work: { c: 'var(--work)', on: 'var(--on-work)' },
@@ -29,7 +31,8 @@ export function parseRoute(hash: string): Route {
  * for a queued request whose task came from a chat or session with a link.
  */
 export type ToastAction = { label: string; run: () => void } | 'open-claude' | { continue: string };
-export interface NotifyOpts { kind?: 'info' | 'error'; action?: ToastAction }
+/** `ms`: how long the toast stays (default 5 s, 8 s with an action, 10 s for errors). */
+export interface NotifyOpts { kind?: 'info' | 'error'; action?: ToastAction; ms?: number }
 
 export interface Ctx {
   s: State;
@@ -53,6 +56,8 @@ export interface Ctx {
   /** The phone's hero mic: opens the sheet, focuses the composer and starts listening, all in the tap. */
   mic: () => void;
   notify: (msg: string, o?: NotifyOpts) => void;
+  /** A toast with Undo for UNDO_MS; Undo runs the calls once (shown at once, then refreshed). */
+  undo: (msg: string, calls: UndoCall[]) => void;
   /** Client-side search, shared by Today and Week. */
   q: string;
   setQ: (q: string) => void;
@@ -88,6 +93,34 @@ export function dayLoad(s: State, day: string) {
   const planned = sum(its), open = sum(its.filter(x => !x.done));
   const over = day >= s.today ? Math.max(0, open - s.settings.capacity_hours * 60) : 0;
   return { its, planned, open, done: planned - open, over };
+}
+
+/** The done tasks the state holds: open ones plus everything done in the last 60 days. */
+export const DONE_DAYS = 60;
+export interface DoneItem { x: Task; day: string; time: string }
+
+/**
+ * "Done this week": tasks completed in the week starting `ws`, by the day they were completed
+ * (in the server's time zone; the planned day when there is no completion time), newest first.
+ * `older`: the week starts before the 60 days the state holds, so the list may be incomplete.
+ */
+export function doneWeek(s: Pick<State, 'tasks' | 'today' | 'tz'>, ws: string) {
+  const we = addDays(ws, 6);
+  const items: DoneItem[] = [];
+  for (const x of s.tasks) {
+    if (!x.done) continue;
+    const at = x.completed_at ? dayTimeIn(s.tz, x.completed_at) : null;
+    const day = at?.day ?? x.day;
+    if (day >= ws && day <= we) items.push({ x, day, time: at?.time ?? '' });
+  }
+  items.sort((a, b) => b.day.localeCompare(a.day) || b.time.localeCompare(a.time) || a.x.title.localeCompare(b.x.title));
+  const groups: { day: string; items: DoneItem[] }[] = [];
+  for (const it of items) {
+    const g = groups[groups.length - 1];
+    if (g?.day === it.day) g.items.push(it); else groups.push({ day: it.day, items: [it] });
+  }
+  const areas = AREAS.map(area => ({ area, min: sum(items.filter(i => i.x.area === area).map(i => i.x)) })).filter(a => a.min > 0);
+  return { groups, n: items.length, min: sum(items.map(i => i.x)), areas, older: ws < addDays(s.today, -DONE_DAYS) };
 }
 
 /** Tasks whose title, project or notes contain every word of the query. */

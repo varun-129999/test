@@ -37,6 +37,9 @@ export function initToken() {
 }
 
 export class AuthError extends Error {}
+/** A non-2xx answer; `status` lets a caller tell "route missing" (404 on an older server) apart. */
+export class HttpError extends Error { constructor(msg: string, readonly status: number) { super(msg); } }
+export const NEWER = 'This needs a newer Docket server (404).';
 /** The request never reached Docket (offline, DNS, server down). */
 export class NetError extends Error {}
 
@@ -56,8 +59,10 @@ export async function api<T = unknown>(method: string, path: string, body?: unkn
   if (res.status === 401) throw new AuthError("That token didn't work.");
   const data = await res.json().catch(() => null);
   if (!res.ok) {
-    // An HTML 404 means the route doesn't exist yet: the server is older than this app.
-    throw new Error(data?.error || (res.status === 404 ? 'This needs a newer Docket server (404).' : `Docket error ${res.status}.`));
+    // A 404 without a specific message (HTML, or the API's catch-all "Not found") means the
+    // route doesn't exist yet: the server is older than this app.
+    const generic = res.status === 404 && (!data?.error || data.error === 'Not found');
+    throw new HttpError(generic ? NEWER : data?.error || `Docket error ${res.status}.`, res.status);
   }
   return (data ?? {}) as T;
 }
@@ -71,7 +76,7 @@ export async function download(path: string, name: string) {
   try { res = await fetch('/api' + path, { headers: token ? { authorization: 'Bearer ' + token } : {} }); }
   catch { throw new NetError("Can't reach Docket. Check your connection."); }
   if (res.status === 401) throw new AuthError("That token didn't work.");
-  if (!res.ok) throw new Error(res.status === 404 ? 'This needs a newer Docket server (404).' : `Docket error ${res.status}.`);
+  if (!res.ok) throw new HttpError(res.status === 404 ? NEWER : `Docket error ${res.status}.`, res.status);
   const url = URL.createObjectURL(await res.blob());
   const a = Object.assign(document.createElement('a'), { href: url, download: name });
   document.body.appendChild(a);
@@ -147,7 +152,10 @@ export function normalizeState(raw: any): State {
     reply: r.reply ?? '',
     reply_at: orNull(r.reply_at),
     inbox_checked_at: orNull(r.inbox_checked_at),
-    flags: { sample: !!r.flags?.sample },
+    deleted: arr(r.deleted, (x: any) => ({ id: String(x.id), title: String(x.title ?? ''), day: x.day ?? '', area: x.area ?? 'Work', deleted_at: x.deleted_at ?? '' })),
+    // Feature check, not a version check: only a server that soft-deletes sends `deleted`.
+    // (A cached, already normalized state carries flags.trash, which wins.)
+    flags: { sample: !!r.flags?.sample, trash: typeof r.flags?.trash === 'boolean' ? r.flags.trash : Array.isArray(r.deleted) },
     version: r.version ?? '',
   };
 }

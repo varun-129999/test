@@ -12,6 +12,8 @@ import { Inbox } from './screens/Inbox';
 import { Usage } from './screens/Usage';
 import { Panel, TabBar, type PanelHandle } from './screens/Panel';
 import { ToastView, type Toast } from './screens/parts';
+import { Keys } from './screens/Keys';
+import { UNDO_MS, applyUndo, once, runUndo, undoDone, type UndoCall } from './undo';
 
 function useWidth() {
   const [w, setW] = useState(window.innerWidth);
@@ -77,7 +79,7 @@ export function App() {
     window.clearTimeout(toastTimer.current);
     const kind = o.kind ?? 'info';
     setToast({ id: Date.now(), msg, kind, action: o.action });
-    toastTimer.current = window.setTimeout(() => setToast(null), kind === 'error' ? 10000 : o.action ? 8000 : 5000);
+    toastTimer.current = window.setTimeout(() => setToast(null), o.ms ?? (kind === 'error' ? 10000 : o.action ? 8000 : 5000));
   }, []);
 
   const openSheet = useCallback((o: { recent?: boolean } = {}) => {
@@ -169,6 +171,22 @@ export function App() {
     };
     const optimistic = (fn: (st: State) => State) => setS(prev => (prev ? fn(prev) : prev));
     const act = async (m: string, p: string, b?: unknown) => (await run(m, p, b)).ok;
+    const undo = (msg: string, calls: UndoCall[]) => notify(msg, {
+      ms: UNDO_MS,
+      action: {
+        label: 'Undo',
+        run: once(async () => {
+          optimistic(st => applyUndo(st, calls));
+          const r = await runUndo(calls, c => api(c.method, c.path, c.body));
+          await refresh();
+          if (r.error instanceof AuthError) setAuth('failed');
+          else if (r.failed) {
+            const why = r.error instanceof Error ? r.error.message : String(r.error);
+            notify((calls.length > 1 ? `Couldn't undo ${r.failed} of ${calls.length}. ` : "Couldn't undo. ") + why, { kind: 'error' });
+          }
+        }),
+      },
+    });
     const ask = async (q: AskSpec) => {
       try {
         const r = await api<QueueResult>('POST', '/requests', { prompt: q.prompt, label: q.label, priority: q.priority, task_id: q.taskId });
@@ -188,16 +206,17 @@ export function App() {
       }
     };
     return {
-      s, wide, route, now, q, setQ, go, act, ask, optimistic, openSheet, mic, notify,
+      s, wide, route, now, q, setQ, go, act, ask, optimistic, openSheet, mic, notify, undo,
       call: async <T,>(m: string, p: string, b?: unknown) => (await run<T>(m, p, b)).data,
       patchTask: async (t: Task, p: TaskPatch) => {
         // The task stores its origin flat; the patch sends it as one object.
         const { origin, ...rest } = p;
         const flat = origin !== undefined ? { origin_kind: origin?.kind ?? null, origin_title: origin?.title ?? null, origin_url: origin?.url ?? null } : {};
         optimistic(st => ({ ...st, tasks: st.tasks.map(x => (x.id === t.id ? ({ ...x, ...rest, ...flat } as Task) : x)) }));
-        // Completing a recurring task makes the next one on the server; say when it is.
+        // Completing a recurring task makes the next one on the server; say when it is. Undo
+        // reopens this one only: the next one stays (delete it by hand if it isn't wanted).
         const r = await run<PatchResult>('PATCH', '/tasks/' + t.id, p);
-        if (r.ok && p.done === true && r.data?.next?.day) notify('Done. Next one on ' + fmtDay(r.data.next.day));
+        if (r.ok && p.done === true && !t.done) undo(r.data?.next?.day ? 'Done. Next one on ' + fmtDay(r.data.next.day) : 'Done: ' + t.title, undoDone(t.id));
         return r.ok;
       },
       addTask: async (t: TaskInput, o: { quiet?: boolean } = {}) => {
@@ -246,6 +265,7 @@ export function App() {
         <Panel ref={panel} open={wide || sheet} onClose={() => setSheet(false)} note={!wide && sheet ? toast : null} onNoteClose={() => setToast(null)} />
         {toast && (wide || !sheet) && <ToastView key={toast.id} t={toast} where={wide ? 'wide' : 'phone'} onClose={() => setToast(null)} />}
         {!wide && <TabBar />}
+        {wide && <Keys />}
       </div>
     </DocketCtx.Provider>
   );

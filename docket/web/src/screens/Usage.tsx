@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { download } from '../api';
-import { derive, useDocket } from '../ctx';
-import { DOWL, ago, plural } from '../format';
+import { AuthError, HttpError, api, download } from '../api';
+import { AREA, derive, useDocket } from '../ctx';
+import { DOWL, ago, fmtDay, plural } from '../format';
 
 const USAGE_URL = 'https://claude.ai/settings/usage';
 
@@ -137,6 +137,10 @@ export function Usage() {
         <button className="btn" type="submit" disabled={url === st.claude_url}>Save</button>
       </form>
       <div className="hint">Paste your Docket project's link so "Open Claude" starts there. The default opens a new chat.</div>
+      <h2 className="section-title">Calendar</h2>
+      <FeedCard />
+      <h2 className="section-title">Recently deleted</h2>
+      <Deleted />
       <div className="usage-foot">
         <span>Docket{s.version ? ' ' + s.version : ''} · times in {s.tz}</span>
         <span style={{ flex: 1 }} />
@@ -146,6 +150,85 @@ export function Usage() {
         )}
         <button className="btn" onClick={() => { if (confirm('Sign out of Docket on this device?')) signOut(); }}>Sign out</button>
       </div>
+    </>
+  );
+}
+
+/** The calendar feed: a private .ics link Apple Calendar (or any calendar) subscribes to. */
+function FeedCard() {
+  const { notify } = useDocket();
+  const [f, setF] = useState<{ state: 'loading' | 'ready' | 'old' | 'error'; url: string | null; msg?: string }>({ state: 'loading', url: null });
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const load = () => {
+    let live = true;
+    api<{ url?: string | null }>('GET', '/feed').then(
+      r => { if (live) setF({ state: 'ready', url: r.url ?? null }); },
+      e => { if (live) setF(e instanceof HttpError && e.status === 404 ? { state: 'old', url: null } : { state: 'error', url: null, msg: e instanceof Error ? e.message : String(e) }); },
+    );
+    return () => { live = false; };
+  };
+  useEffect(load, []);
+  const run = async (method: 'POST' | 'DELETE') => {
+    setBusy(true);
+    try {
+      const r = await api<{ url?: string | null }>(method, '/feed');
+      setF({ state: 'ready', url: method === 'POST' ? r.url ?? null : null });
+      if (method === 'DELETE') notify('Calendar link revoked. Subscriptions to it stop updating.');
+    } catch (e) {
+      if (e instanceof HttpError && e.status === 404) setF({ state: 'old', url: null });
+      if (!(e instanceof AuthError)) notify(e instanceof Error ? e.message : String(e), { kind: 'error' });
+    }
+    setBusy(false);
+  };
+  const copy = (url: string) => {
+    navigator.clipboard?.writeText(url).then(() => { setCopied(true); window.setTimeout(() => setCopied(false), 1500); }, () => notify("Couldn't copy. Select the link instead.", { kind: 'error' }));
+  };
+  const url = f.url;
+  return (
+    <div className="card feed-card">
+      <div className="head">Show Docket in your calendar</div>
+      {f.state === 'old' ? <div className="hint" style={{ marginTop: 0 }}>Calendar links need Docket 0.5 on the server.</div>
+        : f.state === 'error' ? <div className="row-gap" style={{ alignItems: 'center' }}><span className="hint" style={{ marginTop: 0, flex: 1 }}>{f.msg}</span><button className="btn slim" onClick={() => { setF({ state: 'loading', url: null }); load(); }}>Retry</button></div>
+        : f.state === 'loading' ? <div className="hint" style={{ marginTop: 0 }}>Loading…</div>
+        : <>
+          <div className="hint" style={{ marginTop: 0 }}>A private link your calendar subscribes to: tasks from a week ago to two months ahead, timed ones at their time, the rest as all-day. Anyone with the link can read your tasks, so keep it to yourself. Revoke turns it off.</div>
+          {url && <input className="url-in" readOnly value={url} aria-label="Calendar link" onFocus={e => e.currentTarget.select()} />}
+          <div className="row-gap">
+            {url ? <>
+              <a className="btn ink" style={{ textDecoration: 'none' }} href={url.replace(/^https?:/i, 'webcal:')}>Subscribe</a>
+              <button className="btn" onClick={() => copy(url)}>{copied ? 'Copied' : 'Copy'}</button>
+              <button className="btn danger" disabled={busy} onClick={() => { if (confirm('Revoke this calendar link? Calendars subscribed to it stop updating. You can make a new link any time.')) run('DELETE'); }}>Revoke</button>
+            </> : <button className="btn ink" disabled={busy} onClick={() => run('POST')}>{busy ? 'Creating…' : 'Create link'}</button>}
+          </div>
+          <ol>
+            <li>iPhone: Settings → Calendar → Accounts → Add Account → Other → Add Subscribed Calendar, and paste the link.</li>
+            <li>Mac Calendar: File → New Calendar Subscription, and paste the link.</li>
+          </ol>
+        </>}
+    </div>
+  );
+}
+
+/** Tasks deleted in the last 30 days (a 0.5 server keeps them), with Restore and Delete forever. */
+function Deleted() {
+  const { s, act, optimistic, notify, now } = useDocket();
+  if (!s.flags.trash) return <div className="muted-line">Recently deleted needs Docket 0.5 on the server. Until then, deleting a task is permanent.</div>;
+  const drop = (id: string) => optimistic(st => ({ ...st, deleted: st.deleted.filter(d => d.id !== id) }));
+  return (
+    <>
+      {s.deleted.map(x => (
+        <div key={x.id} className="deleted-row">
+          <span className="sq" style={{ background: (AREA[x.area] ?? AREA.Work).c }} />
+          <div className="t">{x.title || 'Untitled'}<span className="m">{x.day ? fmtDay(x.day) + ' · ' : ''}deleted {ago(x.deleted_at, now)}</span></div>
+          <div className="acts">
+            <button className="btn slim" onClick={async () => { drop(x.id); if (await act('POST', `/tasks/${x.id}/restore`)) notify('Restored: ' + x.title); }}>Restore</button>
+            <button className="btn slim danger" onClick={() => { if (confirm(`Delete "${x.title}" forever? This can't be undone.`)) { drop(x.id); act('DELETE', `/tasks/${x.id}/purge`); } }}>Delete forever</button>
+          </div>
+        </div>
+      ))}
+      {s.deleted.length === 0 && <div className="muted-line">Nothing deleted recently.</div>}
+      <div className="hint">Deleted tasks stay here for 30 days, then go for good.</div>
     </>
   );
 }

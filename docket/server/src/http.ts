@@ -10,6 +10,8 @@ import { createMcpServer } from './tools.js';
 import { DocketError, type Store } from './store.js';
 import * as S from './schemas.js';
 import { issuesText, norm } from './schemas.js';
+import { buildIcs } from './ics.js';
+import { tzName } from './dates.js';
 
 export interface HttpOptions {
   /** Shared secret for the API and remote MCP. Empty disables auth (local use only). */
@@ -126,6 +128,12 @@ export function createApp(store: Store, opts: HttpOptions = {}) {
     };
   }
   const p = (req: Request, k: string) => String(req.params[k]);
+  // Behind Render's proxy the request reaches Node as http; the proxy says what the client used.
+  // (No "trust proxy": req.hostname guards the tokenless local mode and must stay the Host header.)
+  const origin = (req: Request) => {
+    const proto = String(req.get('x-forwarded-proto') ?? '').split(',')[0].trim();
+    return `${proto === 'https' || proto === 'http' ? proto : req.protocol}://${req.get('host')}`;
+  };
   const idx = (req: Request) => Number(req.params.idx);
 
   api.get('/health', h(() => ({ ok: true })));
@@ -135,6 +143,8 @@ export function createApp(store: Store, opts: HttpOptions = {}) {
   api.post('/tasks', h(S.TaskInput, (_req, b) => store.addTask(b)));
   api.patch('/tasks/:id', h(S.TaskPatch, (req, b) => store.updateTask(p(req, 'id'), b)));
   api.delete('/tasks/:id', h(req => { store.deleteTask(p(req, 'id')); }));
+  api.post('/tasks/:id/restore', h(req => store.restoreTask(p(req, 'id'))));
+  api.delete('/tasks/:id/purge', h(req => store.purgeTask(p(req, 'id'))));
   api.put('/tasks/:id/steps', h(S.SetSteps.pick({ steps: true }), (req, b) => store.setSteps(p(req, 'id'), b.steps)));
   api.post('/tasks/:id/steps', h(S.AddSteps.omit({ id: true }), (req, b) => store.addSteps(p(req, 'id'), b.steps, b.at)));
   api.patch('/tasks/:id/steps/:idx', h(S.StepDone, (req, b) => store.setStep(p(req, 'id'), idx(req), b.done)));
@@ -161,6 +171,12 @@ export function createApp(store: Store, opts: HttpOptions = {}) {
   api.post('/finds/:id/skip', h(req => { store.resolveFind(p(req, 'id'), false); }));
 
   api.post('/reviews/:week/dismiss', h(req => { store.dismissReview(p(req, 'week')); }));
+
+  // The calendar feed's URL carries its own key, so it can be pasted into Calendar; managing it needs the main token.
+  const feedUrl = (req: Request, key: string | null) => (key ? `${origin(req)}/cal/${key}.ics` : null);
+  api.get('/feed', h(req => ({ url: feedUrl(req, store.feedKey()) })));
+  api.post('/feed', h(req => ({ url: feedUrl(req, store.createFeedKey()) })));
+  api.delete('/feed', h(() => { store.revokeFeedKey(); }));
 
   // Replaces everything with the sample data. Only with DOCKET_SAMPLE=1 (never in production),
   // only with an explicit confirmation, and only after a snapshot.
@@ -204,6 +220,20 @@ export function createApp(store: Store, opts: HttpOptions = {}) {
   app.post('/api/quick', quickAuth, json, h(S.Quick, (_req, b) => store.quickAdd(b)));
   app.get('/api/quick/ping', quickAuth, h(() => ({ ok: true, today: store.today() })));
   app.use('/api', api);
+
+  // The calendar feed: the key in the path is the only credential (calendar apps can't send a
+  // header). Compared in constant time; a missing or wrong key is a plain 404.
+  app.get('/cal/:key.ics', (req, res) => {
+    const key = store.feedKey();
+    if (!key || !safeEqual(String(req.params.key), key)) return void res.status(404).type('text/plain').send('Not found');
+    try {
+      const body = buildIcs(store.feedTasks(), { now: new Date(), tz: tzName(), appUrl: origin(req) + '/' });
+      res.set({ 'Content-Type': 'text/calendar; charset=utf-8', 'Cache-Control': 'no-cache', 'Content-Disposition': 'inline; filename="docket.ics"' }).send(body);
+    } catch (e) {
+      console.error('[docket] calendar feed failed', e);
+      res.status(500).type('text/plain').send('Server error');
+    }
+  });
 
   // ---------- web app ----------
   if (opts.webDir && existsSync(join(opts.webDir, 'index.html'))) {

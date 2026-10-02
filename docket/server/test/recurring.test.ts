@@ -50,7 +50,7 @@ test('a v3 database (0.3.1) upgrades to v4 and keeps its rows', () => {
   const second = openDbInfo(path);
   assert.equal(second.migrated_from, 3);
   assert.equal(userVersion(second.db), SCHEMA_VERSION);
-  assert.equal(SCHEMA_VERSION, 4);
+  assert.ok(SCHEMA_VERSION >= 4);
   const store = new Store(second.db, { now: () => new Date('2026-10-01T10:00:00') });
   const t = store.getTask('abc');
   assert.deepEqual([t.title, t.notes, t.origin_title, t.steps], ['Keep me', 'n', 'Q4', [{ text: 'Step', done: true }]]);

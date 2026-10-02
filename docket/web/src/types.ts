@@ -45,6 +45,8 @@ export interface Usage {
   source: 'owner' | 'claude' | 'statusline' | null; est_pct: number; estimated: boolean; calls_since_reset: number;
   reserve_pct: number; high_only: boolean; at_reserve: boolean; near_reserve: boolean;
 }
+/** A soft-deleted task (0.5.0): restorable for 30 days. */
+export interface DeletedTask { id: string; title: string; day: string; area: Area; deleted_at: string }
 export interface Settings { capacity_hours: number; reserve_pct: number; high_only: boolean; week_start: string; reset: string; pct_per_call: number; claude_url: string }
 
 export interface State {
@@ -53,7 +55,10 @@ export interface State {
   emails: Email[]; finds: Find[]; review: { week_start: string; text: string } | null;
   week_plan: WeekPlan | null; reset_notice: { n: number; at: string } | null;
   last_cmd: string; reply: string; reply_at: string | null; inbox_checked_at: string | null;
-  flags: { sample: boolean }; version: string;
+  /** 0.5.0: tasks deleted in the last 30 days, newest first. */
+  deleted: DeletedTask[];
+  /** `trash`: the server sent `deleted`, so it soft-deletes and Undo / Restore work (set by normalizeState). */
+  flags: { sample: boolean; trash: boolean }; version: string;
 }
 
 /** Response of POST /api/requests. */

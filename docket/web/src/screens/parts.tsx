@@ -7,6 +7,7 @@ import { SearchIcon } from '../icons';
 import { ORIGIN_LABEL, claudeLink, claudePrompt, continueLink } from '../prompts';
 import { WEEK_ORDER, defaultRule, describeRepeat, formatRule, parseRule, shortRepeat, type RepeatRule, type RepeatUnit } from '../repeat';
 import type { Area, OriginKind, PendingRequest, Task, TaskPatch } from '../types';
+import { undoDelete } from '../undo';
 
 // "Set this week's plan" on Today opens Week with the plan field focused.
 let planFocus = false;
@@ -292,12 +293,17 @@ export function AddTaskRow({ day }: { day: string }) {
   );
 }
 
-/** Deletes at once on screen; the server's answer (or an error) follows. */
+/**
+ * Deletes at once on screen; the server's answer (or an error) follows. A 0.5 server keeps the
+ * task for 30 days, so the toast offers Undo; an older one deletes for good, so it doesn't.
+ */
 export function useDelete() {
-  const { act, optimistic } = useDocket();
-  return (x: Task) => {
+  const { s, act, optimistic, undo, notify } = useDocket();
+  return async (x: Task) => {
     optimistic(st => ({ ...st, tasks: st.tasks.filter(t => t.id !== x.id) }));
-    return act('DELETE', '/tasks/' + x.id);
+    const ok = await act('DELETE', '/tasks/' + x.id);
+    if (ok) { if (s.flags.trash) undo('Deleted: ' + x.title, undoDelete(x.id)); else notify('Deleted: ' + x.title); }
+    return ok;
   };
 }
 

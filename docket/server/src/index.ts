@@ -7,6 +7,7 @@ import { createApp } from './http.js';
 import { checkTimeZone } from './dates.js';
 import { listSnapshots, prune, restore, snapshot } from './backup.js';
 import { SCHEMA_VERSION } from './db.js';
+import { RESTORE_DAYS } from './store.js';
 
 const log = (msg: string) => console.log(`[docket] ${msg}`);
 const fail = (msg: string): never => { console.error(`[docket] ${msg}`); process.exit(1); };
@@ -45,6 +46,8 @@ else log(`opened existing database (${tasks} tasks, schema v${SCHEMA_VERSION}${m
 log(`version ${version}, TZ ${process.env.TZ || '(unset)'} (${tz.resolved}), today ${store.today()}`);
 
 // Hourly snapshots on the same disk, with retention. Off-site copies pull /api/backup.
+// After each one, tasks deleted over 30 days ago are removed for good; never without a fresh
+// snapshot, so the last copy that has them is at most an hour old.
 if (config.backupDir && config.dbPath !== ':memory:') {
   const run = () => {
     try {
@@ -53,6 +56,13 @@ if (config.backupDir && config.dbPath !== ':memory:') {
       log(`snapshot ${file}${removed.length ? `, pruned ${removed.length}` : ''}`);
     } catch (e) {
       console.error('[docket] snapshot failed', e);
+      return;
+    }
+    try {
+      const purged = store.purgeDeletedOlderThan(RESTORE_DAYS);
+      if (purged) log(`purged ${purged} task${purged === 1 ? '' : 's'} deleted over ${RESTORE_DAYS} days ago`);
+    } catch (e) {
+      console.error('[docket] purge failed', e);
     }
   };
   const latest = listSnapshots(config.backupDir)[0];

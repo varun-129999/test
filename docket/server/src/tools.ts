@@ -3,7 +3,7 @@ import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import * as S from './schemas.js';
 import { norm } from './schemas.js';
-import { DocketError, type Store } from './store.js';
+import { DocketError, RESTORE_DAYS, compactTask, type Store } from './store.js';
 import { version } from './version.js';
 
 // Mechanics only, and only for Docket topics: these instructions are in the system prompt of
@@ -83,8 +83,11 @@ export function createMcpServer(store: Store): McpServer {
   tool('complete_task', 'Complete task', 'Marks a Docket task (to-do) done. For a recurring task it creates the next one and returns next: {id, day}.',
     S.ById, idem, ({ id }) => store.completeTask(id));
 
-  tool('delete_task', 'Delete task', 'Deletes a Docket task with its steps and moves; returns it.',
-    S.ById, destructive, ({ id }) => ({ deleted: store.deleteTask(id) }));
+  tool('delete_task', 'Delete task', 'Deletes a Docket task (to-do). It can be brought back with restore_task for 30 days.',
+    S.ById, destructive, ({ id }) => ({ deleted: store.deleteTask(id).title, restore_within: `${RESTORE_DAYS} days` }));
+
+  tool('restore_task', 'Restore task', 'Brings back a Docket task (to-do) deleted in the last 30 days, with its steps, when the owner asks to undo a delete.',
+    S.ById, idem, ({ id }) => ({ restored: compactTask(store.restoreTask(id), { day: true, done: true }) }));
 
   tool('set_steps', 'Set steps',
     "Sets a Docket task's checklist: break down a task into 3-6 concrete steps. Replaces the list; unchanged step text keeps its done state. To add a step, use add_steps.",

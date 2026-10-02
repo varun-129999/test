@@ -114,7 +114,7 @@ test('REST: steps, moves, requests, held, week plan and the state shape', async 
   await call('PUT', '/week-plan', { text: 'Ship the deck' });
   store.completeRequest(q1.request.id, { reply: 'Planned.' });
   let s = (await call('GET', '/state')).body;
-  assert.deepEqual(Object.keys(s), ['today', 'now', 'tz', 'tasks', 'moves', 'held', 'requests', 'recent', 'usage', 'settings', 'emails', 'finds', 'review', 'week_plan', 'reset_notice', 'last_cmd', 'reply', 'reply_at', 'inbox_checked_at', 'flags', 'version']);
+  assert.deepEqual(Object.keys(s), ['today', 'now', 'tz', 'tasks', 'deleted', 'moves', 'held', 'requests', 'recent', 'usage', 'settings', 'emails', 'finds', 'review', 'week_plan', 'reset_notice', 'last_cmd', 'reply', 'reply_at', 'inbox_checked_at', 'flags', 'version']);
   assert.match(s.now, /^2026-10-01T10:00:00[+-]\d\d:\d\d$/);
   assert.deepEqual([s.usage.used_pct, s.usage.source, s.usage.at_reserve], [90, 'statusline', true]);
   assert.equal(s.week_plan.text, 'Ship the deck');

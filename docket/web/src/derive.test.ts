@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { dayLoad, derive, parseRoute, search } from './ctx';
+import { dayLoad, derive, doneWeek, parseRoute, search } from './ctx';
 import { normalizeState } from './api';
 
 const T = '2026-10-01';
@@ -81,4 +81,37 @@ test('parseRoute', () => {
   assert.deepEqual(parseRoute('#usage'), { screen: 'usage' });
   assert.deepEqual(parseRoute(''), { screen: 'today' });
   assert.deepEqual(parseRoute('#nonsense'), { screen: 'today' });
+});
+
+test('doneWeek: by completion day in the server zone, newest first, with times and area totals', () => {
+  const s = state([
+    // 18:40 UTC on 30 Sep is 00:10 on 1 Oct in Kolkata.
+    { id: 'late', title: 'Late', day: '2026-09-30', done: true, est: 60, completed_at: '2026-09-30T18:40:00.000Z' },
+    { id: 'a', title: 'A', day: T, done: true, est: 90, area: 'Work', completed_at: '2026-10-01T09:02:00.000Z' },
+    { id: 'b', title: 'B', day: '2026-09-29', done: true, est: 40, area: 'Health', completed_at: '2026-09-29T03:00:00.000Z' },
+    { id: 'nostamp', title: 'Old row', day: '2026-09-28', done: true, est: 20, area: 'Personal', completed_at: null },
+    { id: 'lastweek', title: 'L', day: '2026-09-27', done: true, completed_at: '2026-09-27T05:00:00.000Z' },
+    // Planned next week, done early this week: counts here, on the day it was done.
+    { id: 'early', title: 'Early', day: '2026-10-06', done: true, est: 30, area: 'Personal', completed_at: '2026-09-30T05:00:00.000Z' },
+    { id: 'open', title: 'Open', day: T },
+  ], { tz: 'Asia/Kolkata' });
+  const dw = doneWeek(s, '2026-09-28');
+  assert.deepEqual(dw.groups.map(g => [g.day, g.items.map(i => i.x.id + ' ' + i.time)]), [
+    ['2026-10-01', ['a 14:32', 'late 00:10']],
+    ['2026-09-30', ['early 10:30']],
+    ['2026-09-29', ['b 08:30']],
+    ['2026-09-28', ['nostamp ']],
+  ]);
+  assert.equal(dw.n, 5);
+  assert.equal(dw.min, 240);
+  assert.deepEqual(dw.areas, [{ area: 'Work', min: 150 }, { area: 'Personal', min: 50 }, { area: 'Health', min: 40 }]);
+  assert.equal(dw.older, false);
+  assert.deepEqual(doneWeek(s, '2026-09-21').groups.map(g => g.day), ['2026-09-27']);
+});
+
+test('doneWeek: weeks before the 60 days the state holds are flagged', () => {
+  const s = state([]);
+  assert.equal(doneWeek(s, '2026-08-03').older, false);
+  assert.equal(doneWeek(s, '2026-07-27').older, true);
+  assert.deepEqual(doneWeek(s, '2026-07-27'), { groups: [], n: 0, min: 0, areas: [], older: true });
 });
