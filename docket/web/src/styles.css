@@ -304,6 +304,9 @@ input[type=range] { accent-color: var(--accent); width: 100%; }
 
 .week-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 30px; margin-bottom: -6px; }
 .week-nav { display: flex; align-items: center; gap: 6px; }
+.day-head { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; }
+.day-nav { padding-bottom: 6px; }
+.day-title { display: flex; align-items: center; gap: 12px; }
 .week-nav .icon-btn { width: 30px; height: 30px; }
 .plan { margin-top: 18px; display: flex; flex-direction: column; gap: 10px; }
 .plan-head { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; font-weight: 600; }

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { AREA, AREAS, derive, finished, safeUrl, useDocket } from '../ctx';
-import { DOWL, MONL, addDays, ago, dt, fmtDay, fmtDur, plural, shortDay } from '../format';
+import { DOWL, MONL, addDays, ago, dt, fmtDay, fmtDur, isDay, plural, shortDay } from '../format';
 import { appLink } from '../applink';
 import { Q, continueLink, originOf, originText } from '../prompts';
 import { describeRepeat, shortRepeat } from '../repeat';
@@ -20,8 +20,11 @@ export function Legend({ children }: { children?: React.ReactNode }) {
 }
 
 export function Today() {
-  const { s, wide, go, ask, openSheet, q, patchTask } = useDocket();
-  const d = derive(s);
+  const { s, wide, go, ask, openSheet, q, patchTask, route } = useDocket();
+  const day = route.day && isDay(route.day) ? route.day : s.today;
+  const isToday = day === s.today;
+  const d = derive(s, day);
+  const toDay = (x: string) => go('today', x === s.today ? undefined : x);
   const [expanded, setExpanded] = useState<string | null>(null);
   const del = useDelete();
   // Keyboard (Mac): e marks the open block done, x deletes it, Esc closes it.
@@ -51,7 +54,8 @@ export function Today() {
 
   let banner: { text: string; cta: string; run: () => void; claude?: boolean } | null = null;
   if (!wide && s.moves.length) banner = { text: plural(s.moves.length, 'move') + ' suggested.', cta: 'Review', run: () => openSheet() };
-  else if (d.overMin > 0 && !s.moves.length) banner = { text: `You're ${fmtDur(d.overMin)} over today.`, cta: 'Rebalance', run: () => ask(Q.planDay()), claude: true };
+  else if (d.overMin > 0 && !s.moves.length) banner = isToday ? { text: `You're ${fmtDur(d.overMin)} over today.`, cta: 'Rebalance', run: () => ask(Q.planDay()), claude: true }
+    : { text: `${fmtDur(d.overMin)} over on this day.`, cta: 'Balance week', run: () => ask(Q.balanceWeek()), claude: true };
 
   let cum = 0, lineDone = false;
   const rows: React.ReactNode[] = [];
@@ -67,14 +71,21 @@ export function Today() {
   const done = d.todays.filter(x => x.done);
   const chips: React.ReactNode[] = [];
   if (!wide && s.requests.length) chips.push(<button key="wait" className="btn chip-wait" onClick={() => openSheet()}><span className="dot" />{s.requests.length} waiting</button>);
-  if (td.getDay() === 1 && !s.week_plan) chips.push(<button key="plan" className="btn" onClick={() => { focusPlanNext(); go('week'); }}>Set this week's plan</button>);
+  if (isToday && td.getDay() === 1 && !s.week_plan) chips.push(<button key="plan" className="btn" onClick={() => { focusPlanNext(); go('week'); }}>Set this week's plan</button>);
 
   return (
     <>
       <div className="head-row">
         <div>
-          <div className="eyebrow">{DOWL[td.getDay()]}</div>
-          <h1 className="display">{td.getDate()} {MONL[td.getMonth()]}</h1>
+          <div className="eyebrow">{DOWL[td.getDay()]}{!isToday && ' · ' + (day === addDays(s.today, 1) ? 'Tomorrow' : day === addDays(s.today, -1) ? 'Yesterday' : day < s.today ? 'Past' : 'Ahead')}</div>
+          <div className="day-head">
+            <h1 className="display">{td.getDate()} {MONL[td.getMonth()]}</h1>
+            <div className="week-nav day-nav">
+              <button className="icon-btn" aria-label="Previous day" onClick={() => toDay(addDays(day, -1))}>‹</button>
+              <button className="icon-btn" aria-label="Next day" onClick={() => toDay(addDays(day, 1))}>›</button>
+              {!isToday && <button className="btn slim" onClick={() => toDay(s.today)}>Today</button>}
+            </div>
+          </div>
         </div>
         {wide ? find.input : (
           <div className="head-side">
@@ -100,9 +111,9 @@ export function Today() {
       )}
       {q ? <SearchResults /> : (
         <>
-          {d.overdue.length > 0 && <CarriedOver tasks={d.overdue} />}
+          {isToday && d.overdue.length > 0 && <CarriedOver tasks={d.overdue} />}
           <div className="blocks">{rows}</div>
-          {d.open.length === 0 && <div className="empty">{wide ? 'Nothing left for today.' : "Nothing left for today. Tap the mic and say what's next."}</div>}
+          {d.open.length === 0 && <div className="empty">{!isToday ? 'Nothing planned for this day.' : wide ? 'Nothing left for today.' : "Nothing left for today. Tap the mic and say what's next."}</div>}
           <AddTaskRow day={d.t} />
           {done.length > 0 && (
             <div>
@@ -315,7 +326,7 @@ function Block({ x, over, open, onExpand, onClose }: { x: Task; over: boolean; o
               <button className="btn claude" onClick={() => ask(Q.draft(x))}>Draft it</button>
               <button className="btn claude" aria-expanded={mode === 'give'} onClick={() => setMode(mode === 'give' ? '' : 'give')}>Give to Claude</button>
               <button className="btn" onClick={() => setMode('edit')}>Edit</button>
-              <button className="btn" onClick={async () => { onClose(); if (await patchTask(x, { day: addDays(s.today, 1) })) undo('Moved to tomorrow: ' + x.title, undoDay([x])); }}>Tomorrow</button>
+              <button className="btn" onClick={async () => { onClose(); const to = addDays(x.day, 1); if (await patchTask(x, { day: to })) undo(`Moved to ${to === addDays(s.today, 1) ? 'tomorrow' : fmtDay(to)}: ` + x.title, undoDay([x])); }}>{x.day === s.today ? 'Tomorrow' : 'Next day'}</button>
               <button className="btn danger" onClick={() => { onClose(); del(x); }}>Delete</button>
               {!origin && <button className="set-origin" onClick={() => { setEditAt('origin'); setMode('edit'); }}>Set origin</button>}
             </div>

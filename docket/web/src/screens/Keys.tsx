@@ -38,6 +38,11 @@ export function Keys() {
             if (route.screen !== 'today' && route.screen !== 'week') go('today');
             focusSoon(SEARCH); return true;
           case 'prev-week': case 'next-week': {
+            if (route.screen === 'today') {
+              const day = route.day && isDay(route.day) ? route.day : s.today, to = addDays(day, a === 'prev-week' ? -1 : 1);
+              go('today', to === s.today ? undefined : to);
+              return true;
+            }
             if (route.screen !== 'week') return false;
             const cur = weekStart(s.today), ws = route.week && isDay(route.week) ? weekStart(route.week) : cur;
             const to = addDays(ws, a === 'prev-week' ? -7 : 7);

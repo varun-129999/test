@@ -1,7 +1,7 @@
 {
   "name": "docket-server",
   "private": true,
-  "version": "0.5.5",
+  "version": "0.5.6",
   "type": "module",
   "engines": {
     "node": ">=22.13"

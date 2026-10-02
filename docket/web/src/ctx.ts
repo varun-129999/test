@@ -17,13 +17,14 @@ export const byPlan = (a: Pick<Task, 'at' | 'priority'>, b: Pick<Task, 'at' | 'p
 
 export type Screen = 'today' | 'week' | 'inbox' | 'usage';
 export const SCREENS: Screen[] = ['today', 'week', 'inbox', 'usage'];
-export interface Route { screen: Screen; week?: string }
+export interface Route { screen: Screen; week?: string; day?: string }
 
-/** "#week/2026-10-05" → { screen: 'week', week: '2026-10-05' }. Anything unknown is Today. */
+/** "#week/2026-10-05" → { screen: 'week', week: '2026-10-05' }; "#today/2026-10-05" → { screen: 'today', day: '2026-10-05' }. Anything unknown is Today. */
 export function parseRoute(hash: string): Route {
   const [h, arg] = hash.replace(/^#/, '').split('/');
   const screen = (SCREENS as string[]).includes(h) ? (h as Screen) : 'today';
-  return screen === 'week' && arg && /^\d{4}-\d{2}-\d{2}$/.test(arg) ? { screen, week: arg } : { screen };
+  const date = arg && /^\d{4}-\d{2}-\d{2}$/.test(arg) ? arg : undefined;
+  return screen === 'week' && date ? { screen, week: date } : screen === 'today' && date ? { screen, day: date } : { screen };
 }
 
 /**
@@ -69,15 +70,15 @@ export const useDocket = () => useContext(DocketCtx)!;
 
 const sum = (ts: Task[]) => ts.reduce((a, x) => a + x.est, 0);
 
-/** Derived numbers shared by several screens. */
-export function derive(s: State) {
-  const t = s.today;
+/** Derived numbers shared by several screens; `day` views another day on Today (carried-over stays relative to today). */
+export function derive(s: State, day?: string) {
+  const t = day ?? s.today;
   const capMin = s.settings.capacity_hours * 60;
   const todays = s.tasks.filter(x => x.day === t);
   const open = todays.filter(x => !x.done).sort(byPlan);
   const openMin = sum(open);
   // Open tasks from earlier days. They stay out of today's capacity until the owner moves them.
-  const overdue = s.tasks.filter(x => !x.done && x.day < t).sort((a, b) => RANK[a.priority] - RANK[b.priority] || a.day.localeCompare(b.day));
+  const overdue = s.tasks.filter(x => !x.done && x.day < s.today).sort((a, b) => RANK[a.priority] - RANK[b.priority] || a.day.localeCompare(b.day));
   // The headline is what the owner reported; the estimate (reported plus Docket calls since) is shown beside it.
   const used = s.usage.used_pct, left = 100 - used;
   const est = s.usage.est_pct, estLeft = 100 - est;

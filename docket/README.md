@@ -101,7 +101,7 @@ In a chat in the Docket project, say "What's on today?". Claude should call `get
 
 ## Using it day to day
 
-**The app.** Today shows your blocks for the day, with a "Carried over" card for unfinished tasks from earlier days (Today, Pick day, Done, Delete, or Move all to today). They don't count toward today's capacity until you move them. Week shows each day's load, with ‹ › to move between weeks and a "Later" list for anything after the visible week. Below the selected day, "Done this week" lists what you finished, by day and with the time, and a total per area. Both have a search box. Inbox shows the emails Claude read and the tasks it suggested from them. Usage shows your budget. Buttons that use Claude have a small dot. Everything else (done, steps, editing, approving moves) is free.
+**The app.** Today shows your blocks for the day, with a "Carried over" card for unfinished tasks from earlier days (Today, Pick day, Done, Delete, or Move all to today). They don't count toward today's capacity until you move them. The ‹ › arrows next to the date show another day with the same blocks and buttons (Break down, Give to Claude, Edit, Next day and so on); a Today chip brings you back, and in Week, **Open day** under the selected day does the same. Week shows each day's load, with ‹ › to move between weeks and a "Later" list for anything after the visible week. Below the selected day, "Done this week" lists what you finished, by day and with the time, and a total per area. Both have a search box. Inbox shows the emails Claude read and the tasks it suggested from them. Usage shows your budget. Buttons that use Claude have a small dot. Everything else (done, steps, editing, approving moves) is free.
 
 **Adding tasks without Claude.** Use "Add a task" at the end of Today or under a day in Week. In the composer, start with `+` to add without Claude, for example `+ Call Sam fri at 5pm 45m #Wedding p1 weekly`. A line under the box shows what will be added ("Fri 2 Oct · 17:00 · 45m · Wedding · Work · high · repeats every Fri") before you press Enter. It understands, in any order: durations (`45m`, `1h30`, `1.5h`, `90 min`), days (`today`, `tomorrow`, `fri`, `next mon`, `next week`, `in 3 days`, `15 oct`, `15/10`), `due fri`, times (`at 5pm`, `5:30pm`, `at 17:00`), priority (`p1` to `p3`, `!high`, or `high`/`low` as the last word), `high energy`, the areas, `#project` (`#"Bokaro trip"` for two words), repeats (below) and a link. Anything else stays in the title. The same words work in the Shortcut (see Capture from anywhere). Open a block and tap **Edit** to change its title, estimate, day, time, due date, repeat, priority, area, energy, project, notes, link or origin.
 
@@ -172,7 +172,7 @@ On the Mac (a wide window), press `?` for the list. Shortcuts don't fire while y
 | `/` | Search tasks |
 | `c` | Type to Claude (the composer) |
 | `t` `w` `i` `u` | Today, Week, Inbox, Usage |
-| `[` `]` | Previous or next week, on Week |
+| `[` `]` | Previous or next day on Today; previous or next week on Week |
 | `e` | Mark the open task done (click a block to open it), with Undo |
 | `x` | Delete the open task, with Undo |
 | `Esc` | Close the shortcut list or the open task; in a field, leave the field |

@@ -1,7 +1,7 @@
 {
   "name": "docket",
   "private": true,
-  "version": "0.5.5",
+  "version": "0.5.6",
   "description": "Voice-first task organiser run through Claude: MCP server + PWA",
   "workspaces": [
     "server",

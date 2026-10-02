@@ -29,6 +29,10 @@ test('derive: carried-over tasks are listed but kept out of today', () => {
   assert.equal(d.overMin, 0);
   assert.deepEqual(d.overdue.map(x => x.id), ['old2', 'old1']); // high priority first
   assert.deepEqual(d.todays.map(x => x.id).sort(), ['a', 'b', 'c']);
+  const later = derive(s, '2026-10-09');
+  assert.equal(later.t, '2026-10-09');
+  assert.deepEqual(later.open.map(x => x.id), ['later'], 'another day shows that day');
+  assert.deepEqual(later.overdue.map(x => x.id), ['old2', 'old1'], 'carried-over stays relative to today');
 });
 
 test('derive: capacity counts today\'s open tasks only', () => {
@@ -78,6 +82,8 @@ test('search: every word, in titles, projects and notes; open first', () => {
 test('parseRoute', () => {
   assert.deepEqual(parseRoute('#week/2026-10-05'), { screen: 'week', week: '2026-10-05' });
   assert.deepEqual(parseRoute('#week'), { screen: 'week' });
+  assert.deepEqual(parseRoute('#today/2026-10-05'), { screen: 'today', day: '2026-10-05' });
+  assert.deepEqual(parseRoute('#today/nope'), { screen: 'today' });
   assert.deepEqual(parseRoute('#usage'), { screen: 'usage' });
   assert.deepEqual(parseRoute(''), { screen: 'today' });
   assert.deepEqual(parseRoute('#nonsense'), { screen: 'today' });

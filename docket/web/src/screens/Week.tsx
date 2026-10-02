@@ -81,7 +81,7 @@ export function Week() {
               <button className="btn big claude" onClick={() => ask(Q.review(rw))}>{rw < cur ? (isCur ? 'Review last week' : 'Review this week') : 'Weekly review'}</button>
             </div>
           )}
-          <h2 className="section-title">{sel === t ? 'Today' : fmtDay(sel)}</h2>
+          <h2 className="section-title day-title">{sel === t ? 'Today' : fmtDay(sel)}<button className="btn slim" onClick={() => go('today', sel === t ? undefined : sel)}>Open day</button></h2>
           {items.map(x => <TaskRow key={x.id} x={x} />)}
           {items.length === 0 && <div className="muted-line" style={{ padding: '10px 0' }}>Nothing planned.</div>}
           {sel >= t && <AddTaskRow day={sel} />}
