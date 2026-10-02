@@ -177,7 +177,7 @@ test('MCP: at and repeat round trip; complete_task returns next; a bad rule is a
   assert.match(tools.find(t => t.name === 'complete_task')!.description!, /next/);
   assert.match(tools.find(t => t.name === 'add_task')!.description!, /repeat/);
   assert.match(INSTRUCTIONS, /Recurring tasks: set repeat \(daily, weekdays, weekly:Mon,Thu, monthly:25, every:2:weeks\); completing one creates the next\./);
-  assert.match(INSTRUCTIONS, /origin\.url to its link and origin\.title to its title/);
+  assert.match(INSTRUCTIONS, /set origin\.url to this session.s own link/);
 });
 
 test('REST: PATCH done on a recurring task returns next; at and repeat set and clear', async t => {
