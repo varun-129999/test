@@ -8,7 +8,7 @@ import type { Task } from '../types';
 import { onKey } from '../keys';
 import { undoDay } from '../undo';
 import { ringBg } from './Sidebar';
-import { AddTaskRow, DayPicker, SearchResults, TaskEdit, focusPlanNext, useDelete, useFind, useOpenClaude } from './parts';
+import { AddTaskRow, DayPicker, OutLink, SearchResults, TaskEdit, focusPlanNext, useDelete, useFind, useOpenClaude } from './parts';
 
 export function Legend({ children }: { children?: React.ReactNode }) {
   return (
@@ -254,7 +254,7 @@ function Block({ x, over, open, onExpand, onClose }: { x: Task; over: boolean; o
           {(x.notes || x.link) && (
             <div className="notes">
               {x.notes && <div className="notes-text">{x.notes}</div>}
-              {link ? <a className="link-out" href={link} target="_blank" rel="noreferrer">{link.replace(/^https?:\/\//i, '')}</a> : x.link && <div className="notes-text">{x.link}</div>}
+              {link ? <OutLink href={link} /> : x.link && <div className="notes-text">{x.link}</div>}
             </div>
           )}
           {replied && (
@@ -267,7 +267,7 @@ function Block({ x, over, open, onExpand, onClose }: { x: Task; over: boolean; o
             <div className="draft">
               <div className="draft-label">Result{x.result_at ? ' · ' + ago(x.result_at, now) : ''}</div>
               <div className="draft-text">{x.result}</div>
-              {resultUrl && <a className="link-out" href={resultUrl} target="_blank" rel="noreferrer">{resultUrl.replace(/^https?:\/\//i, '')}</a>}
+              {resultUrl && <OutLink href={resultUrl} />}
               <div className="row-gap" style={{ marginTop: 10 }}>
                 <button className="btn ink" onClick={() => { patchTask(x, { done: true }); onClose(); }}>Mark done</button>
                 <button className="btn" onClick={() => copy('result', x.result!)}>{copied === 'result' ? 'Copied' : 'Copy'}</button>

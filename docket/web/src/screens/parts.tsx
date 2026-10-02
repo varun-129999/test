@@ -33,6 +33,12 @@ export function useOpenClaude() {
   };
 }
 
+/** An outbound link: a claude.ai one opens in the app when the device is set to it, anything else in a new tab. */
+export function OutLink({ href, className = 'link-out', children }: { href: string; className?: string; children?: React.ReactNode }) {
+  const open = useOpenClaude();
+  return <a className={className} href={href} target="_blank" rel="noreferrer" onClick={e => open(e, href, appLink(href))}>{children ?? href.replace(/^https?:\/\//i, '')}</a>;
+}
+
 const copyText = (text: string, done?: () => void) => { try { navigator.clipboard?.writeText(text).then(() => done?.(), () => { /* denied */ }); } catch { /* no clipboard */ } };
 
 /** "Open Claude" with the queued prompt. In the app and in the iPhone home-screen app it also copies the prompt, in the same tap. */
