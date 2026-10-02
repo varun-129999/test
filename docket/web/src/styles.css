@@ -129,6 +129,9 @@ input[type=range] { accent-color: var(--accent); width: 100%; }
 .list-row .t { flex: 1; font-size: 15px; }
 .list-row.done .t { text-decoration: line-through; color: var(--muted); }
 .list-row .m { font-size: 12px; color: var(--muted); }
+.list-row .origin { font-size: 12px; color: var(--accent-ink); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40%; }
+.list-row .origin:hover { text-decoration: underline; }
+.origin-edit .origin-go { align-self: flex-start; text-decoration: none; }
 
 /* ---------- inbox ---------- */
 .lead { font-size: 13px; color: var(--muted); margin-top: 10px; line-height: 1.5; max-width: 560px; }

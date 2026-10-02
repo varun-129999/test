@@ -5,7 +5,7 @@ import { AREA, AREAS, isStandalone, lastArea, search, useDocket, type ToastActio
 import { DOW, addDays, dt, fmtDay, fmtDur, nextMonday, plural } from '../format';
 import { SearchIcon } from '../icons';
 import { appLink, linkPref, openInApp } from '../applink';
-import { ORIGIN_LABEL, claudeLink, claudePrompt, continueLink } from '../prompts';
+import { ORIGIN_LABEL, claudeLink, claudePrompt, continueLink, originOf } from '../prompts';
 import { WEEK_ORDER, defaultRule, describeRepeat, formatRule, parseRule, shortRepeat, type RepeatRule, type RepeatUnit } from '../repeat';
 import type { Area, OriginKind, PendingRequest, Task, TaskPatch } from '../types';
 import { undoDelete } from '../undo';
@@ -201,6 +201,7 @@ export function TaskEdit({ x, onClose, onDelete, focus }: { x: Task; onClose: ()
     setF(p => ({ ...p, origin_url: t, origin_kind: p.origin_kind || (/^https:\/\/claude\.ai\/code\//i.test(t) ? 'claude_code' : /^https:\/\/claude\.ai\//i.test(t) ? 'chat' : /^https:\/\/mail\.google\.com\//i.test(t) ? 'email' : '') }));
   };
   const listId = 'projects-' + x.id;
+  const editCont = continueLink({ kind: f.origin_kind || null, title: f.origin_title || null, url: f.origin_url || null });
   return (
     <form className="edit" onSubmit={save}>
       <label className="f"><span>Title</span><input value={f.title} onChange={e => set('title', e.target.value)} maxLength={200} /></label>
@@ -273,6 +274,7 @@ export function TaskEdit({ x, onClose, onDelete, focus }: { x: Task; onClose: ()
             <input className="grow" type="text" inputMode="url" aria-label="Chat or session link" value={f.origin_url} onChange={e => set('origin_url', e.target.value)} maxLength={500} placeholder="https://claude.ai/…" />
             <button type="button" className="btn slim" onClick={pasteOrigin}>Paste</button>
           </div>
+          {editCont && <OutLink href={editCont.url} className="btn slim origin-go">{editCont.label}</OutLink>}
         </div>
       </div>
       <div className="row-gap edit-actions">
@@ -343,6 +345,7 @@ export function TaskRow({ x, showDay }: { x: Task; showDay?: boolean }) {
   const [open, setOpen] = useState(false);
   const A = AREA[x.area] ?? AREA.Work;
   const withClaude = s.requests.some(r => r.task_id === x.id);
+  const rowOrigin = continueLink(originOf(x));
   return (
     <div className={'list-item' + (open ? ' open' : '')}>
       <div className={'list-row' + (x.done ? ' done' : '')}>
@@ -350,6 +353,7 @@ export function TaskRow({ x, showDay }: { x: Task; showDay?: boolean }) {
         <button className="t row-btn" aria-expanded={open} onClick={() => setOpen(!open)}>{x.title}</button>
         {withClaude && <span className="tag" style={{ background: 'var(--accent-soft)', color: 'var(--accent-ink)', fontSize: 11 }}>With Claude</span>}
         <span className="m">{showDay ? fmtDay(x.day) + ' · ' : ''}{x.at ? x.at + ' · ' : ''}{x.area} · {fmtDur(x.est)}{x.repeat && shortRepeat(x.repeat) ? ' · ' + shortRepeat(x.repeat) : ''}</span>
+        {rowOrigin && <OutLink href={rowOrigin.url} className="origin" >{rowOrigin.label}</OutLink>}
       </div>
       {open && <TaskEdit x={x} onClose={() => setOpen(false)} onDelete={() => { setOpen(false); del(x); }} />}
     </div>
