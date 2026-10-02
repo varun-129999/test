@@ -4,6 +4,7 @@ import { flushSync } from 'react-dom';
 import { AREA, AREAS, isStandalone, lastArea, search, useDocket, type ToastAction } from '../ctx';
 import { DOW, addDays, dt, fmtDay, fmtDur, nextMonday, plural } from '../format';
 import { SearchIcon } from '../icons';
+import { appLink, isSessionLink, linkPref, openInApp } from '../applink';
 import { ORIGIN_LABEL, claudeLink, claudePrompt, continueLink } from '../prompts';
 import { WEEK_ORDER, defaultRule, describeRepeat, formatRule, parseRule, shortRepeat, type RepeatRule, type RepeatUnit } from '../repeat';
 import type { Area, OriginKind, PendingRequest, Task, TaskPatch } from '../types';
@@ -16,14 +17,35 @@ export const takePlanFocus = () => { const v = planFocus; planFocus = false; ret
 
 export interface Toast { id: number; msg: string; kind: 'info' | 'error'; action?: ToastAction }
 
-/** "Open Claude" with the queued prompt. In the iPhone home-screen app it also copies the prompt, in the same tap. */
+/**
+ * Opens a Claude link where the owner chose (Usage, "Open Claude links"): the Claude app when it
+ * has a claude:// form, otherwise the browser. Returns true when it took the click; a modified
+ * click (new tab) is left to the browser. If the app doesn't come up, the toast offers the browser.
+ */
+export function useOpenClaude() {
+  const { notify } = useDocket();
+  return (e: React.MouseEvent, https: string, app: string | null, then?: string) => {
+    if (linkPref() !== 'app' || !app || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return false;
+    e.preventDefault();
+    if (then) notify(then);
+    openInApp(app, () => notify("The Claude app didn't open.", { action: { label: 'Open in browser', run: () => window.open(https, '_blank', 'noopener') } }));
+    return true;
+  };
+}
+
+const copyText = (text: string, done?: () => void) => { try { navigator.clipboard?.writeText(text).then(() => done?.(), () => { /* denied */ }); } catch { /* no clipboard */ } };
+
+/** "Open Claude" with the queued prompt. In the app and in the iPhone home-screen app it also copies the prompt, in the same tap. */
 export function OpenClaude({ className = 'btn ink', onCopied, onOpen }: { className?: string; onCopied?: () => void; onOpen?: () => void }) {
   const { s } = useDocket();
+  const open = useOpenClaude();
   const prompt = claudePrompt(s.requests);
+  const https = claudeLink(s.settings.claude_url, prompt);
   return (
-    <a className={className + ' claude'} style={{ textDecoration: 'none' }} href={claudeLink(s.settings.claude_url, prompt)} target="_blank" rel="noreferrer"
-      onClick={() => {
-        if (isStandalone()) { try { navigator.clipboard?.writeText(prompt).then(() => onCopied?.(), () => { /* denied */ }); } catch { /* no clipboard */ } }
+    <a className={className + ' claude'} style={{ textDecoration: 'none' }} href={https} target="_blank" rel="noreferrer"
+      onClick={e => {
+        const inApp = open(e, https, appLink(https));
+        if (inApp || isStandalone()) copyText(prompt, onCopied);
         onOpen?.();
       }}>Open Claude</a>
   );
@@ -31,15 +53,22 @@ export function OpenClaude({ className = 'btn ink', onCopied, onOpen }: { classN
 
 /**
  * "Continue in <title>": opens the chat or session the task came from, and copies the prompt in
- * the same tap (an existing chat can't be prefilled), so it is one paste there.
+ * the same tap (an existing chat can't be prefilled), so it is one paste there. In the app a
+ * session can't be reopened by link, so the app opens with the prompt in a new composer and the
+ * owner picks the session in the sidebar.
  */
 export function ContinueLink({ reqs, className = 'btn ink', onCopied, children }: { reqs: PendingRequest[]; className?: string; onCopied?: () => void; children?: React.ReactNode }) {
+  const open = useOpenClaude();
   const c = continueLink(reqs[0]?.origin);
   if (!c) return null;
   const prompt = claudePrompt(reqs);
+  const session = isSessionLink(c.url);
   return (
     <a className={className} style={{ textDecoration: 'none' }} href={c.url} target="_blank" rel="noreferrer" title={c.url}
-      onClick={() => { try { navigator.clipboard?.writeText(prompt).then(() => onCopied?.(), () => { /* denied */ }); } catch { /* no clipboard */ } }}>
+      onClick={e => {
+        copyText(prompt, onCopied);
+        open(e, c.url, appLink(c.url, reqs[0]?.origin?.kind, prompt), session ? `Opening Claude. Pick "${c.name}" in its sidebar and paste the request there, or send it in the new session.` : undefined);
+      }}>
       {children ?? c.label}
     </a>
   );

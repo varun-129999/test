@@ -114,7 +114,7 @@ In a chat in the Docket project, say "What's on today?". Claude should call `get
 **Asking Claude.** Talk to Claude in the Docket project ("add call the bank, 15 minutes, Friday, high"), or use the buttons (Plan my day, Balance my week, Break down, Draft, Scan Gmail, Weekly review) and the composer. A button doesn't spend anything by itself:
 
 1. It queues a request. You see "Ready for Claude: …" with an **Open Claude** action, and a "n waiting" chip on Today.
-2. **Open Claude** opens Claude at your project link with the prompt. On the web the prompt is filled in; on the iPhone it is also copied, so paste it if it isn't.
+2. **Open Claude** opens Claude at your project link with the prompt. On a Mac it opens the Claude app (see **Open Claude links** below); in a browser the prompt is filled in; on the iPhone it is also copied, so paste it if it isn't.
 3. Claude sees the queued requests in `get_overview`, does them, and calls `complete_request`. The reply shows in the "Done by Claude" card, and the app tells you when Claude finished something.
 
 You can queue several requests and open Claude once; one chat handles all of them.
@@ -130,6 +130,8 @@ The block shows "From Cowork: Q4 deck" under the title, as a link when there is 
 Cowork sessions run on the Mac: it has to be awake, with Claude open, for a Cowork session to pick up the request. A Claude Code session on the web continues wherever you open the link.
 
 Docket can't wake a Cowork session on the Mac or send it anything. **Continue in …** opens it and copies the prompt; you paste it there and send ("Copied. Paste it there and send."). When the origin has no title the button says **Continue in Cowork** or **Continue in Claude Code**. The queue card and the toast show the start of what you asked, so you can tell two requests for the same task apart. A task without an origin has a small **Set origin** link in its open block, which opens Edit at the Origin row.
+
+**Open Claude links.** Under **Usage → Open Claude links** each device chooses where Claude links go: the **Claude app** (the default on a Mac or a PC) or the **Browser** (the default on the phone). With the app chosen, Open Claude, Continue in … and the usage link open the Claude desktop app through its `claude://` links instead of a browser tab, and the prompt is copied too; if the app doesn't come up within a moment, the toast offers the browser. A chat reopens in the app. The app has no link that reopens an existing Cowork or Claude Code session yet, so **Continue in …** for a session opens the app with the request filled into a new Cowork (or Claude Code) composer: pick the session in the sidebar and paste the request there to keep its context, or send it in the new session if the context doesn't matter. A browser tab opened by hand (Cmd-click) keeps the https link.
 
 ### Capture from anywhere
 
@@ -181,7 +183,7 @@ On the Mac (a wide window), press `?` for the list. Shortcuts don't fire while y
 Two settings on the Usage screen control it: **Save for high priority** (`high_only`, on by default) and **Keep back** (`reserve_pct`, 20% by default).
 
 - You are **at your reserve** when Save for high priority is on and `100 − used_pct ≤ reserve_pct`, where `used_pct` is the last figure you, Claude or the status line reported. The estimate never triggers it.
-- You are **near your reserve** when the estimate (below) says you would be. The Usage screen then asks you to check claude.ai/settings/usage and update the figure.
+- You are **near your reserve** when the estimate (below) says you would be. The Usage screen then asks you to check claude.ai/settings/usage (in the Claude app on a Mac) and update the figure.
 - At the reserve, Claude does high-priority work as usual. Below-high breakdowns, drafts and reviews wait: Claude calls `hold_request` instead of doing them, and says the request is waiting under Usage.
 - Tools never throw away content Claude already wrote. If a below-high breakdown, draft, result or review arrives at the reserve anyway, it is saved and the reply carries a note telling Claude to stop doing more of them in that chat.
 - A request you queue from the app below high priority at the reserve is held instead of queued. A request queued before you hit the reserve doesn't slip through either: when Claude reads the overview or fetches the queue, Docket moves anything below high that you didn't approve to the held list and tells Claude how many (`held_now`).

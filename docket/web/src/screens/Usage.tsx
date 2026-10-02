@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { AuthError, HttpError, api, download } from '../api';
+import { appLink, isDesktop, linkPref, setLinkPref, type LinkPref } from '../applink';
 import { AREA, derive, useDocket } from '../ctx';
 import { DOWL, ago, fmtDay, plural } from '../format';
+import { Seg, useOpenClaude } from './parts';
 
 const USAGE_URL = 'https://claude.ai/settings/usage';
 
@@ -64,6 +66,9 @@ export function Usage() {
   const [url, setUrl] = useState(st.claude_url);
   useEffect(() => setUrl(st.claude_url), [st.claude_url]);
   const notice = s.reset_notice;
+  const openClaude = useOpenClaude();
+  const usageClick = (e: React.MouseEvent) => openClaude(e, USAGE_URL, appLink(USAGE_URL));
+  const [links, setLinks] = useState<LinkPref>(linkPref);
 
   return (
     <>
@@ -84,7 +89,7 @@ export function Usage() {
         <div className="banner">
           <span className="dot" />
           <div className="text">The estimate says you may be at your reserve. Check claude.ai/settings/usage and update the figure below.</div>
-          <a className="btn ink" style={{ textDecoration: 'none' }} href={USAGE_URL} target="_blank" rel="noreferrer">Check</a>
+          <a className="btn ink" style={{ textDecoration: 'none' }} href={USAGE_URL} target="_blank" rel="noreferrer" onClick={usageClick}>Check</a>
         </div>
       )}
       <div className="cells" aria-hidden="true">
@@ -101,7 +106,7 @@ export function Usage() {
           <div className="kv"><span>Used so far</span><span>{usedV}%</span></div>
           <Slider label="Used so far" min={0} max={100} value={usedV} onChange={setUsed} />
           <div className="hint">
-            Copy it from <a href={USAGE_URL} target="_blank" rel="noreferrer">claude.ai/settings/usage</a>, or say "I've used 65%". {u.updated_at ? 'Updated ' + ago(u.updated_at, now) + '.' : 'Not set yet this week.'} Claude has called Docket {plural(u.calls_since_reset, 'time')} since the reset.
+            Copy it from <a href={USAGE_URL} target="_blank" rel="noreferrer" onClick={usageClick}>claude.ai/settings/usage</a>, or say "I've used 65%". {u.updated_at ? 'Updated ' + ago(u.updated_at, now) + '.' : 'Not set yet this week.'} Claude has called Docket {plural(u.calls_since_reset, 'time')} since the reset.
           </div>
         </div>
         <div className="card">
@@ -137,6 +142,12 @@ export function Usage() {
         <button className="btn" type="submit" disabled={url === st.claude_url}>Save</button>
       </form>
       <div className="hint">Paste your Docket project's link so "Open Claude" starts there. The default opens a new chat.</div>
+      <h2 className="section-title">Open Claude links</h2>
+      <Seg label="Open Claude links in" value={links} options={[['app', 'Claude app'], ['browser', 'Browser']]} onChange={v => { setLinkPref(v); setLinks(v); }} />
+      <div className="hint">
+        On this device only. The Claude app answers Open Claude, Continue in … and the usage link; pick Browser where it isn't installed{isDesktop() ? '' : ' (the phone app is not known to answer them)'}.
+        A chat reopens in the app. A Cowork or Claude Code session can't be reopened by link yet, so Continue in … opens the app with the request filled in: pick the session in its sidebar and paste, or send it in the new one.
+      </div>
       <h2 className="section-title">Calendar</h2>
       <FeedCard />
       <h2 className="section-title">Recently deleted</h2>
