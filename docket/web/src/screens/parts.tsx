@@ -4,7 +4,7 @@ import { flushSync } from 'react-dom';
 import { AREA, AREAS, isStandalone, lastArea, search, useDocket, type ToastAction } from '../ctx';
 import { DOW, addDays, dt, fmtDay, fmtDur, nextMonday, plural } from '../format';
 import { SearchIcon } from '../icons';
-import { appLink, isSessionLink, linkPref, openInApp } from '../applink';
+import { appLink, linkPref, openInApp } from '../applink';
 import { ORIGIN_LABEL, claudeLink, claudePrompt, continueLink } from '../prompts';
 import { WEEK_ORDER, defaultRule, describeRepeat, formatRule, parseRule, shortRepeat, type RepeatRule, type RepeatUnit } from '../repeat';
 import type { Area, OriginKind, PendingRequest, Task, TaskPatch } from '../types';
@@ -52,23 +52,17 @@ export function OpenClaude({ className = 'btn ink', onCopied, onOpen }: { classN
 }
 
 /**
- * "Continue in <title>": opens the chat or session the task came from, and copies the prompt in
- * the same tap (an existing chat can't be prefilled), so it is one paste there. In the app a
- * session can't be reopened by link, so the app opens with the prompt in a new composer and the
- * owner picks the session in the sidebar.
+ * "Continue in <title>": opens the chat or session the task came from (in the app when the owner
+ * chose it), and copies the prompt in the same tap, since an existing chat can't be prefilled.
  */
 export function ContinueLink({ reqs, className = 'btn ink', onCopied, children }: { reqs: PendingRequest[]; className?: string; onCopied?: () => void; children?: React.ReactNode }) {
   const open = useOpenClaude();
   const c = continueLink(reqs[0]?.origin);
   if (!c) return null;
   const prompt = claudePrompt(reqs);
-  const session = isSessionLink(c.url);
   return (
     <a className={className} style={{ textDecoration: 'none' }} href={c.url} target="_blank" rel="noreferrer" title={c.url}
-      onClick={e => {
-        copyText(prompt, onCopied);
-        open(e, c.url, appLink(c.url, reqs[0]?.origin?.kind, prompt), session ? `Opening Claude. Pick "${c.name}" in its sidebar and paste the request there, or send it in the new session.` : undefined);
-      }}>
+      onClick={e => { copyText(prompt, onCopied); open(e, c.url, appLink(c.url), `Opening ${c.name} in Claude. Paste the request there and send.`); }}>
       {children ?? c.label}
     </a>
   );

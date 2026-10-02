@@ -146,7 +146,7 @@ export function Usage() {
       <Seg label="Open Claude links in" value={links} options={[['app', 'Claude app'], ['browser', 'Browser']]} onChange={v => { setLinkPref(v); setLinks(v); }} />
       <div className="hint">
         On this device only. The Claude app answers Open Claude, Continue in … and the usage link; pick Browser where it isn't installed{isDesktop() ? '' : ' (the phone app is not known to answer them)'}.
-        A chat reopens in the app. A Cowork or Claude Code session can't be reopened by link yet, so Continue in … opens the app with the request filled in: pick the session in its sidebar and paste, or send it in the new one.
+        Continue in … reopens the chat or the Cowork session the task came from, with the request copied: paste it there and send.
       </div>
       <h2 className="section-title">Calendar</h2>
       <FeedCard />

@@ -1,10 +1,9 @@
 // Claude app links. The Claude desktop app answers claude:// links (support.claude.com, "Open
 // Claude Desktop with a link"): claude://claude.ai/<path> for a chat, a project or a new chat with
-// ?q=, and claude://cowork/new or claude://code/new with ?q= for a session with the composer filled
-// in. No link resumes an existing Cowork or Claude Code session by id yet (anthropics/claude-code
-// issue 81202), so a session origin opens the app with the request ready and the owner picks the
-// session in its sidebar. Nothing here is verified against the iPhone app, so the phone keeps https.
-import type { OriginKind } from './types';
+// ?q=. The same form with a claude.ai/code/session_<id> path opens that Cowork or Claude Code
+// session in the app (checked by the owner on the Mac, 2 Oct 2026; it is not documented), so a
+// session origin reopens where the task came from, with the request copied since an existing
+// session can't be prefilled. Nothing here is verified against the iPhone app, so the phone keeps https.
 
 export type LinkPref = 'app' | 'browser';
 const KEY = 'docket.links';
@@ -19,22 +18,11 @@ export function linkPref(): LinkPref {
 }
 export function setLinkPref(v: LinkPref) { try { localStorage.setItem(KEY, v); } catch { /* private mode */ } }
 
-/** True when the link is a Cowork or Claude Code session, which the app can't reopen by link. */
-export const isSessionLink = (url: string) => /^https:\/\/claude\.ai\/code\/session_[\w-]+/i.test(url);
-
-/**
- * The claude:// form of an https claude.ai link, or null when there is none. A session link
- * becomes a new Cowork or Claude Code composer (by origin kind; a claude.ai/code link without a
- * kind is Claude Code) holding `prompt`, which the documented links take as ?q=.
- */
-export function appLink(url: string, kind?: OriginKind | null, prompt?: string): string | null {
+/** The claude:// form of an https claude.ai link (same path and query), or null when there is none. */
+export function appLink(url: string): string | null {
   let u: URL;
   try { u = new URL(url); } catch { return null; }
   if (u.protocol !== 'https:' || u.hostname !== 'claude.ai') return null;
-  if (isSessionLink(url)) {
-    const q = prompt ? '?q=' + encodeURIComponent(prompt) : '';
-    return (kind === 'cowork' ? 'claude://cowork/new' : 'claude://code/new') + q;
-  }
   return 'claude://claude.ai' + u.pathname + u.search;
 }
 

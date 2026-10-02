@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { appLink, isSessionLink } from './applink';
+import { appLink } from './applink';
 
 test('appLink: claude.ai pages open in the app at the same path', () => {
   assert.equal(appLink('https://claude.ai/chat/0199-abc'), 'claude://claude.ai/chat/0199-abc');
@@ -9,14 +9,8 @@ test('appLink: claude.ai pages open in the app at the same path', () => {
   assert.equal(appLink('https://claude.ai/settings/usage'), 'claude://claude.ai/settings/usage');
 });
 
-test('appLink: a session link opens a new Cowork or Claude Code composer with the prompt', () => {
-  const s = 'https://claude.ai/code/session_01Lo4Fi2wxedZs5xtWgNx8Qr';
-  assert.ok(isSessionLink(s));
-  assert.equal(appLink(s, 'cowork', 'Do task a1'), 'claude://cowork/new?q=Do%20task%20a1');
-  assert.equal(appLink(s, 'claude_code', 'Do task a1'), 'claude://code/new?q=Do%20task%20a1');
-  assert.equal(appLink(s, null, 'x & y'), 'claude://code/new?q=x%20%26%20y', 'no kind: Claude Code');
-  assert.equal(appLink(s, 'cowork'), 'claude://cowork/new', 'no prompt: just the app');
-  assert.ok(!isSessionLink('https://claude.ai/chat/x'));
+test('appLink: a Cowork or Claude Code session opens in the app by the same path', () => {
+  assert.equal(appLink('https://claude.ai/code/session_01Lo4Fi2wxedZs5xtWgNx8Qr'), 'claude://claude.ai/code/session_01Lo4Fi2wxedZs5xtWgNx8Qr');
 });
 
 test('appLink: nothing for links outside claude.ai or not https', () => {

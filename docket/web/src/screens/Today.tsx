@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { AREA, AREAS, derive, finished, safeUrl, useDocket } from '../ctx';
 import { DOWL, MONL, addDays, ago, dt, fmtDay, fmtDur, plural, shortDay } from '../format';
-import { appLink, isSessionLink } from '../applink';
+import { appLink } from '../applink';
 import { Q, continueLink, originOf, originText } from '../prompts';
 import { describeRepeat, shortRepeat } from '../repeat';
 import type { Task } from '../types';
@@ -242,7 +242,7 @@ function Block({ x, over, open, onExpand, onClose }: { x: Task; over: boolean; o
           <div className="block-meta">
             {meta && <span className="meta">{meta}</span>}
             {from && (fromUrl
-              ? <a className="origin" href={fromUrl} target="_blank" rel="noreferrer" title={fromUrl} onClick={e => { e.stopPropagation(); openClaude(e, fromUrl, appLink(fromUrl, origin?.kind), isSessionLink(fromUrl) ? 'Opening Claude. Pick the session in its sidebar.' : undefined); }}>{from}</a>
+              ? <a className="origin" href={fromUrl} target="_blank" rel="noreferrer" title={fromUrl} onClick={e => { e.stopPropagation(); openClaude(e, fromUrl, appLink(fromUrl)); }}>{from}</a>
               : <span className="origin">{from}</span>)}
             {tags.map(tg => <span key={tg.t} className="tag" title={tg.title} style={{ background: tg.bg, color: tg.fg }}>{tg.t}</span>)}
           </div>
