@@ -9,6 +9,9 @@ export const AREA: Record<Area, { c: string; on: string }> = {
 };
 export const AREAS: Area[] = ['Work', 'Personal', 'Health'];
 export const RANK: Record<Priority, number> = { high: 0, med: 1, low: 2 };
+/** A day's order: tasks with a time first, by time, then by priority (as the server's overview sorts). */
+export const byPlan = (a: Pick<Task, 'at' | 'priority'>, b: Pick<Task, 'at' | 'priority'>) =>
+  (a.at ? 0 : 1) - (b.at ? 0 : 1) || (a.at && b.at ? a.at.localeCompare(b.at) : 0) || RANK[a.priority] - RANK[b.priority];
 
 export type Screen = 'today' | 'week' | 'inbox' | 'usage';
 export const SCREENS: Screen[] = ['today', 'week', 'inbox', 'usage'];
@@ -66,7 +69,7 @@ export function derive(s: State) {
   const t = s.today;
   const capMin = s.settings.capacity_hours * 60;
   const todays = s.tasks.filter(x => x.day === t);
-  const open = todays.filter(x => !x.done).sort((a, b) => RANK[a.priority] - RANK[b.priority]);
+  const open = todays.filter(x => !x.done).sort(byPlan);
   const openMin = sum(open);
   // Open tasks from earlier days. They stay out of today's capacity until the owner moves them.
   const overdue = s.tasks.filter(x => !x.done && x.day < t).sort((a, b) => RANK[a.priority] - RANK[b.priority] || a.day.localeCompare(b.day));
@@ -93,7 +96,7 @@ export function search(tasks: Task[], q: string): Task[] {
   if (!words.length) return [];
   return tasks
     .filter(x => { const hay = [x.title, x.project, x.notes].filter(Boolean).join(' ').toLowerCase(); return words.every(w => hay.includes(w)); })
-    .sort((a, b) => Number(a.done) - Number(b.done) || a.day.localeCompare(b.day) || RANK[a.priority] - RANK[b.priority]);
+    .sort((a, b) => Number(a.done) - Number(b.done) || a.day.localeCompare(b.day) || byPlan(a, b));
 }
 
 /**

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AREA, AREAS, RANK, dayLoad, derive, useDocket } from '../ctx';
+import { AREA, AREAS, byPlan, dayLoad, derive, useDocket } from '../ctx';
 import { DOW, MON, addDays, ago, dt, fmtDay, fmtDur, isDay, isoWeek, plural, weekStart } from '../format';
 import { Q, reviewWeek } from '../prompts';
 import type { Task } from '../types';
@@ -21,8 +21,8 @@ export function Week() {
   const weekMin = loads.reduce((a, l) => a + l.planned, 0);
   const overDays = loads.filter(l => l.over > 0).length;
   const wsd = dt(ws), wed = dt(days[6]);
-  const items = s.tasks.filter(x => x.day === sel).sort((a, b) => Number(a.done) - Number(b.done) || RANK[a.priority] - RANK[b.priority]);
-  const later = s.tasks.filter(x => !x.done && x.day > days[6]).sort((a, b) => a.day.localeCompare(b.day) || RANK[a.priority] - RANK[b.priority]);
+  const items = s.tasks.filter(x => x.day === sel).sort((a, b) => Number(a.done) - Number(b.done) || byPlan(a, b));
+  const later = s.tasks.filter(x => !x.done && x.day > days[6]).sort((a, b) => a.day.localeCompare(b.day) || byPlan(a, b));
   const groups = new Map<string, Task[]>();
   for (const x of later) { const k = weekStart(x.day); groups.set(k, [...(groups.get(k) ?? []), x]); }
   const toWeek = (w: string) => go('week', w === cur ? undefined : w);

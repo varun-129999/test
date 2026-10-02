@@ -103,7 +103,11 @@ In a chat in the Docket project, say "What's on today?". Claude should call `get
 
 **The app.** Today shows your blocks for the day, with a "Carried over" card for unfinished tasks from earlier days (Today, Pick day, Done, Delete, or Move all to today). They don't count toward today's capacity until you move them. Week shows each day's load, with ‹ › to move between weeks and a "Later" list for anything after the visible week. Both have a search box. Inbox shows the emails Claude read and the tasks it suggested from them. Usage shows your budget. Buttons that use Claude have a small dot. Everything else (done, steps, editing, approving moves) is free.
 
-**Adding tasks without Claude.** Use "Add a task" at the end of Today or under a day in Week. In the composer, start with `+` to add without Claude, for example `+Groceries 45m personal tomorrow low`; it understands durations (`30m`, `1h`), the areas, today, tomorrow, weekday names, and "high" or "low". Open a block and tap **Edit** to change its title, estimate, day, due date, priority, area, energy, project, notes, link or origin.
+**Adding tasks without Claude.** Use "Add a task" at the end of Today or under a day in Week. In the composer, start with `+` to add without Claude, for example `+ Call Sam fri at 5pm 45m #Wedding p1 weekly`. A line under the box shows what will be added ("Fri 2 Oct · 17:00 · 45m · Wedding · Work · high · repeats every Fri") before you press Enter. It understands, in any order: durations (`45m`, `1h30`, `1.5h`, `90 min`), days (`today`, `tomorrow`, `fri`, `next mon`, `next week`, `in 3 days`, `15 oct`, `15/10`), `due fri`, times (`at 5pm`, `5:30pm`, `at 17:00`), priority (`p1` to `p3`, `!high`, or `high`/`low` as the last word), `high energy`, the areas, `#project` (`#"Bokaro trip"` for two words), repeats (below) and a link. Anything else stays in the title. The same words work in the Shortcut (see Capture from anywhere). Open a block and tap **Edit** to change its title, estimate, day, time, due date, repeat, priority, area, energy, project, notes, link or origin.
+
+**Time of day.** A task can have a time ("17:30"). It shows first on the block ("17:30 · Q4 planning · …"), and timed tasks sort to the top of the day in time order, then the rest by priority. Clear the time in Edit to make it an any-time task again.
+
+**Repeating tasks.** Set **Repeat** in Edit (Daily, Weekdays, Weekly on chosen days, Monthly on a day, or every N days, weeks or months), or type it: `daily`, `weekdays`, `weekly`, `every mon,thu`, `every 2 weeks`, `monthly 25`. The block shows a small tag ("Weekly", "Mon, Thu"). When you tick a repeating task done, Docket adds the next one and says "Done. Next one on Fri 9 Oct". It counts from the planned day, or from the day you finish it if you tick **From completion** (`after done` when typing). The next one is never put in the past: if you finish a daily task three days late, the next one is today, not three days ago. The next one is an ordinary task: it shows in Week and Later, and you can move or edit it on its own. Deleting a task deletes only that one. Setting Repeat to None on a task means ticking it adds no next one. Reopening a done task does not remove the next one it made, so delete that one by hand if you need to.
 
 **Asking Claude.** Talk to Claude in the Docket project ("add call the bank, 15 minutes, Friday, high"), or use the buttons (Plan my day, Balance my week, Break down, Draft, Scan Gmail, Weekly review) and the composer. A button doesn't spend anything by itself:
 
@@ -122,6 +126,14 @@ Each task can carry its origin: the chat, Cowork or Claude Code session, or emai
 The block shows "From Cowork: Q4 deck" under the title, as a link when there is one. When you **Give to Claude** a task with an origin link, the toast and the queue card say **Continue in Q4 deck** instead of Open Claude: it opens that chat or session and copies the prompt in the same tap, so you paste it there and Claude carries on with the context it already has. No need to write long context into notes. Tasks without a link work as before: Open Claude starts a new chat, and the prompt names the chat by title so Claude knows where the task came from.
 
 Cowork sessions run on the Mac: it has to be awake, with Claude open, for a Cowork session to pick up the request. A Claude Code session on the web continues wherever you open the link.
+
+Docket can't wake a Cowork session on the Mac or send it anything. **Continue in …** opens it and copies the prompt; you paste it there and send ("Copied. Paste it there and send."). When the origin has no title the button says **Continue in Cowork** or **Continue in Claude Code**. The queue card and the toast show the start of what you asked, so you can tell two requests for the same task apart. A task without an origin has a small **Set origin** link in its open block, which opens Edit at the Origin row.
+
+### Capture from anywhere
+
+Add a task from the iPhone or the Mac without opening Docket: the Share Sheet, "Hey Siri, Docket", a home-screen widget, the Action button or a Mac keyboard shortcut. They all run one Apple Shortcut that sends what you said or shared to `POST /api/quick`, which reads it with the same words as the `+` line above and adds the task. Start with "ask Claude" (or "Claude,") to queue a request for Claude instead of adding a task.
+
+The Shortcut uses a separate capture token, `DOCKET_CAPTURE_TOKEN`, so the main token never lives on your phone in a Shortcut. The capture token only works on `/api/quick`: it can add tasks and queue requests, and can't read, change or delete anything. Set it in Render (Environment, `openssl rand -hex 24`), then follow [docs/shortcuts.md](docs/shortcuts.md) step by step.
 
 **Planning the week.** On Week, write what you want this week in the "This week" card, then tap **Plan my week from this**. Claude adds the missing tasks and proposes moves for the existing ones. Claude never moves a task by itself: you approve each move, or use Move all / Skip all.
 
@@ -256,13 +268,13 @@ Gmail and Drive are not built into Docket. Claude uses its own connectors and th
 
 ## REST API (used by the web app)
 
-Every route is under `/api` and needs `Authorization: Bearer <token>`. `?token=` is accepted only on `/api/events` and `/mcp` (and the `/mcp/<token>` path form). Bad input gets a 400 with `{ "error": "…" }` naming the fields; unknown routes get a JSON 404.
+Every route is under `/api` and needs `Authorization: Bearer <token>`. `?token=` is accepted only on `/api/events` and `/mcp` (and the `/mcp/<token>` path form). The two capture routes also take the capture token (`DOCKET_CAPTURE_TOKEN`), in the header or as `?token=`, and nothing else does. Bad input gets a 400 with `{ "error": "…" }` naming the fields; unknown routes get a JSON 404.
 
 | Route | Body → result |
 |---|---|
 | `GET /state` | Everything the app shows (see `docs/contract.md`) |
 | `POST /tasks` | task fields → Task |
-| `PATCH /tasks/:id` | any task fields, including `done` and `result: null` → Task |
+| `PATCH /tasks/:id` | any task fields, including `done`, `at`, `repeat` and `result: null` → Task, plus `next: { id, day }` when completing a repeating task added the next one |
 | `DELETE /tasks/:id` | |
 | `PUT /tasks/:id/steps` | `{ steps }` (replace; unchanged text keeps done) → Task |
 | `POST /tasks/:id/steps` | `{ steps, at? }` → Task |
@@ -284,6 +296,8 @@ Every route is under `/api` and needs `Authorization: Bearer <token>`. `?token=`
 | `POST /finds/:id/add` | → Task |
 | `POST /finds/:id/skip` | |
 | `POST /reviews/:week/dismiss` | |
+| `POST /quick` | `{ text, link?, source? }` → `{ task, message }`, or `{ request, message }` when the text starts with "ask Claude"; main or capture token |
+| `GET /quick/ping` | → `{ ok, today }`, to test the Shortcut's token; main or capture token |
 | `POST /sample` | `{ "confirm": "wipe" }`; only when the server runs with `DOCKET_SAMPLE=1` |
 | `GET /backup` | the database file (a consistent snapshot) |
 | `GET /export.json` | every table as JSON |
@@ -301,6 +315,7 @@ Every route is under `/api` and needs `Authorization: Bearer <token>`. `?token=`
 | `DOCKET_BACKUP_DIR` | `backups/` next to the database | Where hourly snapshots go. |
 | `DOCKET_REQUIRE_DISK` | off (Docker: `1`) | `1` refuses to start unless the database folder is a mounted disk, so data never lands on the container's own filesystem. |
 | `DOCKET_RESTORE_FROM` | none | Path of a snapshot to restore at boot, once. Unset it afterwards. |
+| `DOCKET_CAPTURE_TOKEN` | none | Optional second secret for the capture Shortcut: accepted only on `POST /api/quick` and `GET /api/quick/ping`, so a leak can add tasks and nothing else. A new one: `openssl rand -hex 24`. See `docs/shortcuts.md`. |
 | `DOCKET_SAMPLE` | off | `1` loads the sample data into an empty database and allows the sample reset. Never set it on the live service. |
 | `PORT` / `HOST` | `8787` / `127.0.0.1` (`0.0.0.0` with a token) | Listen address. |
 | `WEB_DIR` | `web/dist` | The built web app. |

@@ -172,6 +172,12 @@ const MIGRATIONS: ((db: DatabaseSync) => void)[] = [
   db => {
     for (const col of ['origin_kind TEXT', 'origin_title TEXT', 'origin_url TEXT']) addColumn(db, 'tasks', col);
   },
+  // v4: a time of day ("HH:MM", local) and recurring tasks: the rule, what the next one counts
+  // from ('planned' or 'done', checked in schemas.ts), and the series the instances share.
+  db => {
+    for (const col of ['at TEXT', 'repeat TEXT', `repeat_from TEXT NOT NULL DEFAULT 'planned'`, 'series_id TEXT']) addColumn(db, 'tasks', col);
+    db.exec('CREATE INDEX IF NOT EXISTS tasks_series ON tasks(series_id)');
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

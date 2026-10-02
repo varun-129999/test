@@ -89,6 +89,10 @@ function task(x: any): Task {
     project: orNull(x.project), due: orNull(x.due), source: orNull(x.source), draft: orNull(x.draft), gmail_draft_id: orNull(x.gmail_draft_id),
     notes: orNull(x.notes), link: orNull(x.link), result: orNull(x.result), result_url: orNull(x.result_url), result_at: orNull(x.result_at),
     origin_kind: orNull(x.origin_kind), origin_title: orNull(x.origin_title), origin_url: orNull(x.origin_url),
+    // 0.4.0 fields; a 0.3 server sends none of them.
+    at: typeof x.at === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(x.at) ? x.at : null,
+    repeat: typeof x.repeat === 'string' && x.repeat ? x.repeat : null,
+    repeat_from: x.repeat_from === 'done' ? 'done' : 'planned', series_id: orNull(x.series_id),
     completed_at: orNull(x.completed_at), done: !!x.done, est: Number(x.est) || 0,
     steps: arr(x.steps, (s: any) => ({ text: String(s?.text ?? ''), done: !!s?.done })),
     created_at: x.created_at ?? '', updated_at: x.updated_at ?? '',
@@ -102,7 +106,7 @@ function request(x: any, seenDefault: boolean): PendingRequest {
   };
 }
 
-/** Fills fields an older server (0.2.0) does not send, so the app never crashes on them. */
+/** Fills fields an older server (0.2.0, 0.3) does not send, so the app never crashes on them. */
 export function normalizeState(raw: any): State {
   const r = raw ?? {};
   const u = r.usage ?? {}, st = r.settings ?? {};

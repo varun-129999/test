@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { AREA, AREAS, derive, finished, safeUrl, useDocket } from '../ctx';
 import { DOWL, MONL, addDays, ago, dt, fmtDay, fmtDur, plural, shortDay } from '../format';
 import { Q, continueLink, originOf, originText } from '../prompts';
+import { describeRepeat, shortRepeat } from '../repeat';
 import type { Task } from '../types';
 import { ringBg } from './Sidebar';
 import { AddTaskRow, DayPicker, SearchResults, TaskEdit, focusPlanNext, useDelete, useFind } from './parts';
@@ -153,6 +154,7 @@ function Block({ x, over, open, onExpand, onClose }: { x: Task; over: boolean; o
   const del = useDelete();
   const [copied, setCopied] = useState('');
   const [mode, setMode] = useState<'' | 'edit' | 'give'>('');
+  const [editAt, setEditAt] = useState<'origin' | undefined>();
   const [give, setGive] = useState('');
   const [step, setStep] = useState('');
   useEffect(() => { if (!open) setMode(''); }, [open]);
@@ -165,12 +167,14 @@ function Block({ x, over, open, onExpand, onClose }: { x: Task; over: boolean; o
   } else if (big) { bg = A.c; fg = A.on; ring = A.on; }
   else { bg = 'var(--card)'; fg = 'var(--ink)'; border = '1px solid var(--line)'; ring = A.c; }
   const onBlock = big && !over;
-  const tag = (t: string, accent = false) => ({ t, bg: accent ? 'var(--accent-soft)' : onBlock ? 'rgba(255,255,255,.22)' : 'var(--chip)', fg: accent ? 'var(--accent-ink)' : 'inherit' });
+  const tag = (t: string, accent = false, title?: string) => ({ t, title, bg: accent ? 'var(--accent-soft)' : onBlock ? 'rgba(255,255,255,.22)' : 'var(--chip)', fg: accent ? 'var(--accent-ink)' : 'inherit' });
   const pending = s.requests.find(r => r.task_id === x.id);
   const last = finished(s.recent).find(r => r.task_id === x.id);
   const replied = !pending && last && (last.outcome === 'needs_owner' || last.outcome === 'failed') ? last : null;
   const tags = [];
   if (x.priority === 'high') tags.push(tag('High'));
+  const rep = shortRepeat(x.repeat);
+  if (rep) tags.push(tag(rep, false, describeRepeat(x.repeat, x.repeat_from)));
   if (pending) tags.push(tag('With Claude', true));
   else if (replied) tags.push(tag('Claude replied', true));
   if (x.result) tags.push(tag('Result ready', true));
@@ -182,7 +186,7 @@ function Block({ x, over, open, onExpand, onClose }: { x: Task; over: boolean; o
     if (mv) tags.push(tag('Suggest ' + fmtDay(mv.to_day).split(' ')[0], true));
   }
   const sd = x.steps.filter(z => z.done).length;
-  const meta = [x.project, x.energy === 'high' ? 'High energy' : 'Low energy', x.steps.length ? `${sd} of ${x.steps.length} steps` : ''].filter(Boolean).join(' · ');
+  const meta = [x.at, x.project, x.energy === 'high' ? 'High energy' : 'Low energy', x.steps.length ? `${sd} of ${x.steps.length} steps` : ''].filter(Boolean).join(' · ');
   const h = big ? Math.min(130, Math.max(48, x.est * 0.7)) : 0;
   const link = safeUrl(x.link), resultUrl = safeUrl(x.result_url);
   const origin = originOf(x), from = originText(origin), fromUrl = continueLink(origin)?.url;
@@ -219,7 +223,7 @@ function Block({ x, over, open, onExpand, onClose }: { x: Task; over: boolean; o
             {from && (fromUrl
               ? <a className="origin" href={fromUrl} target="_blank" rel="noreferrer" title={fromUrl} onClick={e => e.stopPropagation()}>{from}</a>
               : <span className="origin">{from}</span>)}
-            {tags.map(tg => <span key={tg.t} className="tag" style={{ background: tg.bg, color: tg.fg }}>{tg.t}</span>)}
+            {tags.map(tg => <span key={tg.t} className="tag" title={tg.title} style={{ background: tg.bg, color: tg.fg }}>{tg.t}</span>)}
           </div>
         </div>
         <div className="block-dur">{fmtDur(x.est)}</div>
@@ -283,7 +287,7 @@ function Block({ x, over, open, onExpand, onClose }: { x: Task; over: boolean; o
               <button className="btn" type="button" onClick={() => setMode('')}>Cancel</button>
             </form>
           )}
-          {mode === 'edit' ? <TaskEdit x={x} onClose={() => setMode('')} /> : (
+          {mode === 'edit' ? <TaskEdit x={x} focus={editAt} onClose={() => { setMode(''); setEditAt(undefined); }} /> : (
             <div className="row-gap">
               <button className="btn claude" onClick={() => ask(Q.breakDown(x))}>Break down</button>
               <button className="btn claude" onClick={() => ask(Q.estimate(x))}>Estimate</button>
@@ -292,6 +296,7 @@ function Block({ x, over, open, onExpand, onClose }: { x: Task; over: boolean; o
               <button className="btn" onClick={() => setMode('edit')}>Edit</button>
               <button className="btn" onClick={() => { patchTask(x, { day: addDays(s.today, 1) }); onClose(); }}>Tomorrow</button>
               <button className="btn danger" onClick={() => { onClose(); del(x); }}>Delete</button>
+              {!origin && <button className="set-origin" onClick={() => { setEditAt('origin'); setMode('edit'); }}>Set origin</button>}
             </div>
           )}
         </div>

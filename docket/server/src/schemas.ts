@@ -3,6 +3,7 @@
 // (anything stored here is read back into Claude's context, so size is usage).
 import { z } from 'zod';
 import { isIsoDay } from './dates.js';
+import { REPEAT_FORMS, REPEAT_FROM, parseRepeat } from './repeat.js';
 
 export const AREAS = ['Work', 'Personal', 'Health'] as const;
 export const PRIORITIES = ['high', 'med', 'low'] as const;
@@ -63,6 +64,13 @@ function orNull<T extends z.ZodType>(s: T) {
 /** On a patch, null clears the field. */
 const clearable = <T extends z.ZodType>(s: T) => s.nullable().optional();
 
+/** A local time of day, 24-hour "HH:MM". */
+export const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'must be "HH:MM" (24-hour)').describe('Local time, HH:MM');
+/** Human or canonical; the store normalises it with the task's day. */
+export const repeat = z.string().trim().max(60).refine(v => parseRepeat(v) !== null, `not a repeat rule; use ${REPEAT_FORMS}`)
+  .describe('e.g. daily, weekdays, weekly:Mon,Thu, monthly:25, every:2:weeks');
+export const repeatFrom = z.enum(REPEAT_FROM).describe('Next one counted from the planned day (default) or from completion');
+
 /** Where a task came from. The link is the context: "Give to Claude" continues there. */
 export const Origin = z.object({
   kind: orNull(z.enum(ORIGIN_IN).meta({ enum: [...ORIGIN_KINDS] })),
@@ -83,6 +91,9 @@ export const TaskInput = z.object({
   notes: orNull(str(CAPS.notes)).describe('Context, what "done" means'),
   link: orNull(url(CAPS.link)),
   origin: orNull(Origin).describe('Where the task came from'),
+  at: orNull(time),
+  repeat: orNull(repeat),
+  repeat_from: orNull(repeatFrom),
 });
 export const TaskPatch = z.object({
   title: text(CAPS.title).optional(),
@@ -97,6 +108,9 @@ export const TaskPatch = z.object({
   notes: clearable(str(CAPS.notes)),
   link: clearable(url(CAPS.link)),
   origin: clearable(Origin),
+  at: clearable(time),
+  repeat: clearable(repeat),
+  repeat_from: repeatFrom.optional(),
   done: z.boolean().optional(),
   result: z.null().optional().describe('null clears the result'),
 });
@@ -151,6 +165,11 @@ export const SuggestTasks = z.object({
     title: text(CAPS.title), area: area.optional(), project: orNull(str(CAPS.project)), due: orNull(day), est: minutes.optional(),
     priority: priority.optional(), energy: energy.optional(), email_id: id.optional(),
   })).min(1).max(25),
+});
+export const Quick = z.object({
+  text: text(CAPS.prompt),
+  link: str(CAPS.link).optional(),
+  source: str(40).optional().describe('Where the capture came from, e.g. "shortcut"; "gmail" marks an email task'),
 });
 export const ListTasks = z.object({
   from: day.optional(), to: day.optional(), area: area.optional(), project: str(CAPS.project).optional(),

@@ -12,6 +12,8 @@ export const config = {
   /** Where hourly snapshots go. Defaults to a backups/ folder next to the database. */
   backupDir: process.env.DOCKET_BACKUP_DIR || (dbPath === ':memory:' ? '' : join(dirname(dbPath), 'backups')),
   token: process.env.DOCKET_TOKEN || '',
+  /** Optional second token that can only add tasks (POST /api/quick), for Apple Shortcuts and Siri. */
+  captureToken: process.env.DOCKET_CAPTURE_TOKEN || '',
   port: Number(process.env.PORT || 8787),
   host: process.env.HOST || '',
   webDir: process.env.WEB_DIR || resolve(here, '../../web/dist'),

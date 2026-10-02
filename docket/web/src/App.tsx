@@ -3,8 +3,8 @@ import { flushSync } from 'react-dom';
 import { AuthError, NetError, api, coalesce, getState, getToken, normalizeState, setToken, subscribe, type LiveStatus } from './api';
 import { DocketCtx, finished, isStandalone, parseRoute, rememberArea, type Ctx, type NotifyOpts, type Route, type Screen } from './ctx';
 import { fmtDay, fmtDur, hhmm, todayIn } from './format';
-import type { AskSpec } from './prompts';
-import type { QueueResult, State, Task, TaskInput, TaskPatch } from './types';
+import { instructionOf, type AskSpec } from './prompts';
+import type { PatchResult, QueueResult, State, Task, TaskInput, TaskPatch } from './types';
 import { Sidebar } from './screens/Sidebar';
 import { Today } from './screens/Today';
 import { Week } from './screens/Week';
@@ -179,7 +179,8 @@ export function App() {
           const before = r.existing ? s.requests.find(x => x.id === r.request.id) : undefined;
           const lead = !r.existing ? 'Ready for Claude: ' : before && before.prompt !== r.request.prompt ? 'Updated what Claude will do: ' : 'Already waiting for Claude: ';
           const task = q.taskId ? s.tasks.find(x => x.id === q.taskId) : undefined;
-          notify(lead + q.label.replace(/^Give to Claude: /, ''), { action: task?.origin_url ? { continue: r.request.id } : 'open-claude' });
+          const said = instructionOf(q.prompt);
+          notify(lead + q.label.replace(/^Give to Claude: /, '') + (said ? ` · "${said}"` : ''), { action: task?.origin_url ? { continue: r.request.id } : 'open-claude' });
         }
       } catch (e) {
         fail(e);
@@ -189,18 +190,21 @@ export function App() {
     return {
       s, wide, route, now, q, setQ, go, act, ask, optimistic, openSheet, mic, notify,
       call: async <T,>(m: string, p: string, b?: unknown) => (await run<T>(m, p, b)).data,
-      patchTask: (t: Task, p: TaskPatch) => {
+      patchTask: async (t: Task, p: TaskPatch) => {
         // The task stores its origin flat; the patch sends it as one object.
         const { origin, ...rest } = p;
         const flat = origin !== undefined ? { origin_kind: origin?.kind ?? null, origin_title: origin?.title ?? null, origin_url: origin?.url ?? null } : {};
         optimistic(st => ({ ...st, tasks: st.tasks.map(x => (x.id === t.id ? ({ ...x, ...rest, ...flat } as Task) : x)) }));
-        return act('PATCH', '/tasks/' + t.id, p);
+        // Completing a recurring task makes the next one on the server; say when it is.
+        const r = await run<PatchResult>('PATCH', '/tasks/' + t.id, p);
+        if (r.ok && p.done === true && r.data?.next?.day) notify('Done. Next one on ' + fmtDay(r.data.next.day));
+        return r.ok;
       },
       addTask: async (t: TaskInput, o: { quiet?: boolean } = {}) => {
         const out = (await run<Task>('POST', '/tasks', t)).data;
         if (out) {
           rememberArea(t.area);
-          if (!o.quiet) notify(`Added: ${out.title} · ${out.day === s.today ? 'Today' : fmtDay(out.day)} · ${fmtDur(out.est)}`);
+          if (!o.quiet) notify(`Added: ${out.title} · ${out.day === s.today ? 'Today' : fmtDay(out.day)}${out.at ? ' · ' + out.at : ''} · ${fmtDur(out.est)}`);
         }
         return out;
       },

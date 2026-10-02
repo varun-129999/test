@@ -69,10 +69,11 @@ const poll = setInterval(() => {
 }, 1500);
 poll.unref();
 
-const app = createApp(store, { token: config.token, webDir: config.webDir, backupDir: config.backupDir, version });
+const app = createApp(store, { token: config.token, captureToken: config.captureToken, webDir: config.webDir, backupDir: config.backupDir, version });
 const server = app.listen(config.port, host, () => {
   log(`listening on http://${host === '0.0.0.0' ? 'localhost' : host}:${config.port}`);
   log(`MCP endpoint: /mcp${config.token ? '  (auth: Bearer token, ?token= or /mcp/<token>)' : '  (no auth, local only)'}`);
+  if (config.captureToken) log(config.captureToken === config.token ? 'DOCKET_CAPTURE_TOKEN is the same as DOCKET_TOKEN; give it its own value' : 'capture token set: POST /api/quick accepts it');
 });
 
 // Node runs as PID 1 in the container, where SIGTERM has no default handler: without

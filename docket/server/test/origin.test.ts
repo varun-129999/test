@@ -28,7 +28,7 @@ test('a v2 database (0.3.0) upgrades to v3 and keeps its rows', () => {
   const second = openDbInfo(path);
   assert.equal(second.migrated_from, 2);
   assert.equal(userVersion(second.db), SCHEMA_VERSION);
-  assert.equal(SCHEMA_VERSION, 3);
+  assert.ok(SCHEMA_VERSION >= 3);
   const store = new Store(second.db);
   const t = store.getTask('abc');
   assert.deepEqual([t.title, t.notes, t.origin_kind, t.origin_title, t.origin_url], ['Keep me', 'n', null, null, null]);

@@ -2,7 +2,9 @@ import { EventEmitter } from 'node:events';
 import { randomBytes } from 'node:crypto';
 import { type DB, tx } from './db.js';
 import { DOWL, addDays, ago, dt, fmtDay, fmtMoment, iso, isIsoDay, isoWeek, localIso, periodStart, tzName, weekDays, weekStart } from './dates.js';
-import { AREAS, ENERGIES, ORIGIN_KINDS, PRIORITIES, isHttpsUrl, isSafeUrl, type Area, type Energy, type OriginKind, type Priority } from './schemas.js';
+import { AREAS, CAPS, ENERGIES, ORIGIN_KINDS, PRIORITIES, isHttpsUrl, isSafeUrl, type Area, type Energy, type OriginKind, type Priority } from './schemas.js';
+import { REPEAT_FORMS, REPEAT_FROM, describeRepeat, nextOccurrence, parseRepeat, type RepeatFrom } from './repeat.js';
+import { askClaude, parseQuickAdd } from './quick.js';
 import { version } from './version.js';
 
 export { AREAS, ENERGIES, ORIGIN_KINDS, PRIORITIES, type Area, type Energy, type OriginKind, type Priority };
@@ -14,6 +16,7 @@ export interface Task {
   draft: string | null; gmail_draft_id: string | null; notes: string | null; link: string | null;
   result: string | null; result_url: string | null; result_at: string | null;
   origin_kind: OriginKind | null; origin_title: string | null; origin_url: string | null;
+  at: string | null; repeat: string | null; repeat_from: RepeatFrom; series_id: string | null;
   steps: Step[]; created_at: string; updated_at: string;
 }
 /** Where a task came from; only the fields that are set. */
@@ -22,9 +25,11 @@ export interface OriginIn { kind?: OriginKind | null; title?: string | null; url
 export interface TaskInput {
   title: string; area: Area; project?: string | null; day?: string; due?: string | null;
   est: number; priority: Priority; energy: Energy; source?: 'gmail' | null; notes?: string | null; link?: string | null;
-  origin?: OriginIn | null;
+  origin?: OriginIn | null; at?: string | null; repeat?: string | null; repeat_from?: RepeatFrom | null;
 }
 export type TaskPatch = Partial<TaskInput> & { done?: boolean; result?: null };
+/** The instance a completed recurring task created. */
+export interface NextInstance { id: string; day: string }
 export type StepIn = string | { text: string; done?: boolean };
 
 export interface Settings {
@@ -100,6 +105,10 @@ const nowIso = (d: Date) => d.toISOString();
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
 const WEEK_MS = 7 * 864e5;
 const RANK_SQL = `CASE priority WHEN 'high' THEN 0 WHEN 'med' THEN 1 ELSE 2 END`;
+// Within a day: timed tasks first, by time, then by priority.
+const ORDER_SQL = `day, at IS NULL, at, ${RANK_SQL}, created_at`;
+const isTime = (v: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
+const isClaudeLink = (v: string) => /^https:\/\/claude\.ai\/(code|chat)\//i.test(v.trim());
 const MAX_STEPS = 30;
 
 type Row = Record<string, any>;
@@ -110,11 +119,12 @@ export interface Flags { sample: boolean }
 export function compactTask(t: Task, o: { day?: boolean; done?: boolean } = {}) {
   return {
     id: t.id, title: t.title, ...(o.day ? { day: t.day } : {}), area: t.area, ...(t.project ? { project: t.project } : {}),
-    ...(t.due ? { due: t.due } : {}), est: t.est, priority: t.priority, energy: t.energy,
+    ...(t.due ? { due: t.due } : {}), ...(t.at ? { at: t.at } : {}), est: t.est, priority: t.priority, energy: t.energy,
     ...(o.done && t.done ? { done: true } : {}), ...(t.source ? { source: t.source } : {}),
     ...(t.steps.length ? { steps: `${t.steps.filter(x => x.done).length}/${t.steps.length}` } : {}),
     ...(t.draft ? { has_draft: true } : {}), ...(t.notes ? { has_notes: true } : {}), ...(t.result ? { has_result: true } : {}),
     ...(t.link ? { link: t.link } : {}), ...(originLabel(t) ? { origin: originLabel(t) } : {}),
+    ...(t.repeat ? { repeat: t.repeat } : {}),
   };
 }
 
@@ -285,6 +295,7 @@ export class Store {
       draft: r.draft || null, gmail_draft_id: r.gmail_draft_id || null, notes: r.notes || null, link: r.link || null,
       result: r.result || null, result_url: r.result_url || null, result_at: r.result_at || null,
       origin_kind: r.origin_kind || null, origin_title: r.origin_title || null, origin_url: r.origin_url || null,
+      at: r.at || null, repeat: r.repeat || null, repeat_from: r.repeat_from === 'done' ? 'done' : 'planned', series_id: r.series_id || null,
       steps, created_at: r.created_at, updated_at: r.updated_at,
     };
   }
@@ -312,11 +323,11 @@ export class Store {
     return { sql: where.length ? ' WHERE ' + where.join(' AND ') : '', args };
   }
 
-  /** Tasks by day, then priority. */
+  /** Tasks by day, then time (timed first), then priority. */
   listTasks(f: TaskFilter = {}): Task[] {
     const { sql, args } = this.taskWhere(f);
     const limit = f.limit ? ` LIMIT ${Math.max(1, Math.floor(f.limit))}` : '';
-    return (this.db.prepare(`SELECT * FROM tasks${sql} ORDER BY day, ${RANK_SQL}, created_at${limit}`).all(...args) as Row[]).map(r => this.rowToTask(r));
+    return (this.db.prepare(`SELECT * FROM tasks${sql} ORDER BY ${ORDER_SQL}${limit}`).all(...args) as Row[]).map(r => this.rowToTask(r));
   }
 
   /** list_tasks: bounded, with counts, compact unless asked for everything. */
@@ -349,16 +360,27 @@ export class Store {
     if (p.link && !isSafeUrl(p.link)) throw new DocketError('link must start with https://, http:// or mailto:');
     if (p.origin?.url && !isHttpsUrl(p.origin.url)) throw new DocketError('origin.url must be an https:// link');
     if (p.origin?.kind && !ORIGIN_KINDS.includes(p.origin.kind)) throw new DocketError(`origin.kind must be one of ${ORIGIN_KINDS.join(', ')}`);
+    if (p.at && !isTime(p.at)) throw new DocketError('at must be a 24-hour time, "HH:MM"');
+    if (p.repeat_from && !REPEAT_FROM.includes(p.repeat_from)) throw new DocketError('repeat_from must be planned or done');
   }
 
-  private insertTask(t: TaskInput): string {
+  /** The stored (canonical) form of a repeat rule; "weekly" and "monthly" take the task's day. */
+  private repeatRule(v: string | null | undefined, day: string): string | null {
+    if (!v?.trim()) return null;
+    const r = parseRepeat(v, day);
+    if (!r) throw new DocketError(`repeat "${v}" is not a rule Docket knows. Use ${REPEAT_FORMS}.`);
+    return r;
+  }
+
+  private insertTask(t: TaskInput & { series_id?: string | null }): string {
     this.checkFields(t);
-    const taskId = id(), at = this.stamp(), o = originCols(t.origin);
-    this.db.prepare(`INSERT INTO tasks (id, title, area, project, day, due, est_min, priority, energy, done, source, notes, link, origin_kind, origin_title, origin_url, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-      taskId, t.title.trim(), t.area, t.project?.trim() || null, t.day || this.today(), t.due || null,
+    const taskId = id(), stamp = this.stamp(), o = originCols(t.origin), day = t.day || this.today();
+    this.db.prepare(`INSERT INTO tasks (id, title, area, project, day, due, est_min, priority, energy, done, source, notes, link, origin_kind, origin_title, origin_url,
+      at, repeat, repeat_from, series_id, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+      taskId, t.title.trim(), t.area, t.project?.trim() || null, day, t.due || null,
       Math.max(5, Math.round(t.est)), t.priority, t.energy, t.source || null, t.notes?.trim() || null, t.link?.trim() || null,
-      o.origin_kind, o.origin_title, o.origin_url, at, at);
+      o.origin_kind, o.origin_title, o.origin_url, t.at || null, this.repeatRule(t.repeat, day), t.repeat_from || 'planned', t.series_id ?? null, stamp, stamp);
     return taskId;
   }
 
@@ -375,7 +397,7 @@ export class Store {
     return { added: added.map(t => ({ id: t.id, title: t.title, day: t.day })), day_load: this.dayLoad(added.map(t => t.day)) };
   }
 
-  private patchTask(cur: Task, p: TaskPatch): boolean {
+  private patchTask(cur: Task, p: TaskPatch): { changed: boolean; next?: NextInstance } {
     this.checkFields(p);
     const cols: Record<string, string | number | null> = {};
     if (p.title !== undefined) cols.title = p.title.trim();
@@ -391,6 +413,10 @@ export class Store {
     if (p.link !== undefined) cols.link = p.link?.trim() || null;
     // An origin replaces the old one as a whole: a new chat is a new place to continue.
     if (p.origin !== undefined) Object.assign(cols, originCols(p.origin));
+    if (p.at !== undefined) cols.at = p.at || null;
+    // null stops this task repeating; the instances already made stay.
+    if (p.repeat !== undefined) cols.repeat = this.repeatRule(p.repeat, p.day ?? cur.day);
+    if (p.repeat_from !== undefined) cols.repeat_from = p.repeat_from || 'planned';
     if (p.done !== undefined) {
       cols.done = p.done ? 1 : 0;
       if (!p.done) cols.completed_at = null;
@@ -398,39 +424,107 @@ export class Store {
     }
     if (p.result === null) Object.assign(cols, { result: null, result_url: null, result_at: null });
     const keys = Object.keys(cols);
-    if (!keys.length) return false;
-    tx(this.db, () => {
+    if (!keys.length) return { changed: false };
+    const next = tx(this.db, () => {
       this.db.prepare(`UPDATE tasks SET ${keys.map(k => k + ' = ?').join(', ')}, updated_at = ? WHERE id = ?`)
         .run(...Object.values(cols), this.stamp(), cur.id);
       // A manual move or completion makes pending suggestions for the task stale.
       if ((p.day !== undefined && p.day !== cur.day) || (p.done && !cur.done)) {
         this.db.prepare(`UPDATE moves SET status = 'skipped' WHERE task_id = ? AND status = 'pending'`).run(cur.id);
       }
+      // Completing a recurring task makes the next one in the same transaction.
+      return p.done && !cur.done ? this.spawnNext(this.getTask(cur.id)) : undefined;
     });
-    return true;
+    return { changed: true, ...(next ? { next } : {}) };
   }
 
-  updateTask(taskId: string, p: TaskPatch): Task {
-    if (this.patchTask(this.getTask(taskId), p)) this.changed();
-    return this.getTask(taskId);
+  /**
+   * The next instance of a completed recurring task: a copy with its steps unticked, on the rule's
+   * next day, in the same series. Made once: if the series already has an instance on or after
+   * that day (the task was reopened and completed again), nothing is added.
+   */
+  private spawnNext(t: Task): NextInstance | undefined {
+    if (!t.repeat) return;
+    const series = t.series_id ?? t.id;
+    const day = nextOccurrence(t.repeat, t.day, t.repeat_from, this.today());
+    if (this.db.prepare('SELECT 1 FROM tasks WHERE series_id = ? AND id != ? AND day >= ? LIMIT 1').get(series, t.id, day)) return;
+    if (!t.series_id) this.db.prepare('UPDATE tasks SET series_id = ? WHERE id = ?').run(series, t.id);
+    const nextId = this.insertTask({
+      title: t.title, area: t.area, project: t.project, day, est: t.est, priority: t.priority, energy: t.energy, notes: t.notes, link: t.link,
+      origin: { kind: t.origin_kind, title: t.origin_title, url: t.origin_url }, at: t.at, repeat: t.repeat, repeat_from: t.repeat_from, series_id: series,
+    });
+    const ins = this.db.prepare('INSERT INTO steps (task_id, idx, text, done) VALUES (?, ?, ?, 0)');
+    t.steps.forEach((s, i) => ins.run(nextId, i, s.text));
+    return { id: nextId, day };
+  }
+
+  /** The task, plus `next` when completing it created the next instance of a recurring task. */
+  updateTask(taskId: string, p: TaskPatch): Task & { next?: NextInstance } {
+    const r = this.patchTask(this.getTask(taskId), p);
+    if (r.changed) this.changed();
+    return r.next ? { ...this.getTask(taskId), next: r.next } : this.getTask(taskId);
   }
 
   /** One change to many tasks, with the old values so Claude can put them back. */
   updateTasks(ids: string[], set: TaskPatch) {
     const keys = (Object.keys(set) as (keyof TaskPatch)[]).filter(k => set[k] !== undefined);
     let updated = 0;
+    const next: NextInstance[] = [];
     const before = tx(this.db, () => [...new Set(ids)].map(taskId => {
       const cur = this.getTask(taskId);
       const old: Record<string, unknown> = { id: taskId };
       for (const k of keys) old[k] = k === 'origin' ? originOf(cur) ?? null : cur[k as keyof Task];
-      if (this.patchTask(cur, set)) updated++;
+      const r = this.patchTask(cur, set);
+      if (r.changed) updated++;
+      if (r.next) next.push(r.next);
       return old;
     }));
     if (updated) this.changed();
-    return { updated, before };
+    return { updated, before, ...(next.length ? { next } : {}) };
   }
 
   completeTask(taskId: string, done = true) { return this.updateTask(taskId, { done }); }
+
+  /**
+   * Capture from anywhere (an Apple Shortcut, Siri, the share sheet): one line of text becomes a
+   * task with the quick-add grammar, or, after "ask Claude", a high-priority request. Nothing is
+   * dropped: a link that can't be stored as one goes into the notes, and so does an over-long line.
+   */
+  quickAdd(q: { text: string; link?: string; source?: string }): { task: Task; message: string } | { request: PendingRequest; message: string } {
+    // A leading "+" is the app's quick-add marker; typed into a Shortcut it means the same.
+    const text = q.text.replace(/\s+/g, ' ').trim().replace(/^\+\s*/, '');
+    const link = q.link?.trim() || undefined;
+    const ask = askClaude(text);
+    if (ask !== null) {
+      if (!ask) throw new DocketError('Say what Claude should do after "ask Claude".');
+      const prompt = (link ? `${ask}\n\nLink: ${link}` : ask).slice(0, CAPS.prompt);
+      const r = this.queueRequest({ prompt, priority: 'high' });
+      if (r.status !== 'pending') throw new DocketError('The request could not be queued.');
+      return { request: r.request, message: `Queued for Claude: "${ask.slice(0, 40)}${ask.length > 40 ? '…' : ''}". Open Claude to run it.` };
+    }
+    const today = this.today(), p = parseQuickAdd(text, today, { now: this.now() });
+    if (!p.title) throw new DocketError('Nothing to add: say what the task is, e.g. "Call Sam tomorrow 5pm".');
+    const notes: string[] = [];
+    let title = p.title;
+    if (title.length > CAPS.title) { notes.push(text); title = title.slice(0, CAPS.title - 1).trimEnd() + '…'; }
+    // A Claude chat or session link is where the task came from; any other web link is the task's link.
+    let taskLink: string | undefined, origin: OriginIn | undefined;
+    for (const u of new Set([p.link, link].filter((x): x is string => !!x))) {
+      if (!origin && isClaudeLink(u) && isHttpsUrl(u)) origin = { url: u };
+      else if (!taskLink && isSafeUrl(u) && u.length <= CAPS.link) taskLink = u;
+      else notes.push('Link: ' + u);
+    }
+    const day = p.day ?? today;
+    const task = this.addTask({
+      title, area: p.area ?? 'Work', project: p.project, day, due: p.due, est: Math.min(24 * 60, Math.max(5, p.est ?? 30)),
+      priority: p.priority ?? 'med', energy: p.energy ?? 'low', at: p.at, repeat: p.repeat, repeat_from: p.repeat_from,
+      link: taskLink, origin, notes: notes.join('\n').slice(0, CAPS.notes) || undefined,
+      source: /^(gmail|email|mail)$/i.test(q.source ?? '') ? 'gmail' : undefined,
+    });
+    const when = day === today ? 'today' : day === addDays(today, 1) ? 'tomorrow' : fmtDay(day);
+    const rep = task.repeat ? '; ' + describeRepeat(task.repeat, task.repeat_from).replace(/^R/, 'r') : '';
+    return { task, message: `Added "${task.title}" for ${when}${task.at ? ' at ' + task.at : ''}${rep}.` };
+  }
 
   deleteTask(taskId: string) {
     const t = this.getTask(taskId);
@@ -1010,18 +1104,18 @@ export class Store {
       if (o.done) this.db.prepare('UPDATE tasks SET done = 1, completed_at = ? WHERE id = ?').run(this.stamp(), taskId);
     };
     add({ title: 'Finish Q4 budget deck', project: 'Q4 planning', est: 150, priority: 'high', energy: 'high', steps: [['Gather numbers', true], ['Outline', true], ['Revenue slides', false], ['Send to Priya', false]] });
-    add({ title: 'Team sync', est: 60 });
+    add({ title: 'Team sync', est: 60, at: '11:00', repeat: 'weekdays' });
     add({ title: "Review Sam's contract", est: 55, priority: 'high', source: 'gmail' });
     add({ title: 'Reply to Sam about contract renewal', est: 15, priority: 'high', source: 'gmail' });
     add({ title: 'Pay Acme invoice', est: 10, priority: 'high', due: n(1), source: 'gmail' });
-    add({ title: 'Call mum', area: 'Personal', est: 20 });
+    add({ title: 'Call mum', area: 'Personal', est: 20, at: '18:30' });
     add({ title: 'Book dentist', area: 'Health', est: 5, priority: 'low' });
     add({ title: 'Groceries', area: 'Personal', est: 45 });
     add({ title: 'Plan Lisbon trip', area: 'Personal', project: 'Lisbon trip', est: 60, priority: 'low', origin: { kind: 'chat', title: 'Lisbon ideas' } });
     add({ title: 'Gym', area: 'Health', est: 40, energy: 'high' });
     add({ title: 'Laundry', area: 'Personal', est: 30, day: n(1), priority: 'low' });
     add({ title: 'Book Lisbon flights', area: 'Personal', project: 'Lisbon trip', est: 30, day: n(2) });
-    add({ title: 'Run', area: 'Health', est: 45, day: n(2), energy: 'high' });
+    add({ title: 'Run', area: 'Health', est: 45, day: n(2), energy: 'high', repeat: 'every:2:days' });
     add({ title: 'Prep Monday planning', est: 45, day: n(4) });
     add({ title: 'Send weekly update', est: 30, day: n(-1), done: true });
     add({ title: 'Pharmacy', area: 'Health', est: 20, day: n(-1), done: true });

@@ -1,8 +1,8 @@
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react';
 import { finished, lastArea, useDocket } from '../ctx';
-import { age, fmtDay, fmtDur, plural } from '../format';
+import { age, fmtDay, plural } from '../format';
 import { MicIcon } from '../icons';
-import { Q, claudePrompt, continueLink, parseQuickAdd, reviewWeek } from '../prompts';
+import { Q, claudePrompt, continueLink, instructionOf, quickPreview, quickTask, reviewWeek } from '../prompts';
 import type { Outcome, PendingRequest } from '../types';
 import { useNav } from './Sidebar';
 import { ContinueLink, OpenClaude, ToastView, type Toast } from './parts';
@@ -64,14 +64,15 @@ export function Panel({ ref, open, onClose, note, onNoteClose }: { ref: Ref<Pane
     return () => { vv.removeEventListener('resize', on); vv.removeEventListener('scroll', on); node.style.removeProperty('--kb'); node.style.removeProperty('--vvh'); };
   }, [wide, open]);
 
-  const quick = parseQuickAdd(input, s.today, { area: lastArea() });
+  const quick = quickTask(input, s.today, { area: lastArea() });
+  const said = (r: PendingRequest) => instructionOf(r.prompt);
   const send = async (text = input) => {
     const t = text.trim();
     if (!t) return;
     setHeard(false);
     setHint('');
     if (t.startsWith('+')) {
-      const qa = parseQuickAdd(t, s.today, { area: lastArea() });
+      const qa = quickTask(t, s.today, { area: lastArea() });
       if (!qa) { notify('Type a title after the +.', { kind: 'error' }); return; }
       setInput('');
       await addTask(qa);
@@ -104,7 +105,7 @@ export function Panel({ ref, open, onClose, note, onNoteClose }: { ref: Ref<Pane
           <div className="claude-label"><span className="dot" />Claude<span className="busy">{mic.listening ? 'Listening…' : s.requests.length ? s.requests.length + ' waiting' : ''}</span></div>
           {s.last_cmd && <div className="reply-cmd">"{s.last_cmd}"</div>}
           <div className="reply">{hint || s.reply || 'Tell me what to add, move or plan.'}</div>
-          {!s.last_cmd && <div className="hint">Start with + to add a task yourself, without Claude: "+ groceries 45m tomorrow".</div>}
+          {!s.last_cmd && <div className="hint">Start with + to add a task yourself, without Claude: "+ call Sam fri at 5pm 45m #Wedding weekly".</div>}
         </div>
 
         {s.requests.length > 0 && (
@@ -115,7 +116,7 @@ export function Panel({ ref, open, onClose, note, onNoteClose }: { ref: Ref<Pane
               return (
                 <div key={r.id} className="queue-item">
                   <div className="queue-row">
-                    <span className="t">{r.label}</span>
+                    <span className="t">{r.label}{said(r) && <span className="said">"{said(r)}"</span>}</span>
                     <span className="age" title={new Date(r.created_at).toLocaleString()}>{age(r.created_at, now)}</span>
                     <button className="btn slim" onClick={() => act('DELETE', '/requests/' + r.id)}>Remove</button>
                   </div>
@@ -128,7 +129,7 @@ export function Panel({ ref, open, onClose, note, onNoteClose }: { ref: Ref<Pane
               <button className="btn" onClick={copy}>{copied === 'prompt' ? 'Copied' : 'Copy prompt'}</button>
             </div>
             <div className="hint" style={{ marginTop: 0 }}>
-              {copied === 'continue' ? 'Copied; paste it there.' : copied === 'open' ? "Copied; paste it if it isn't filled in." : sameOrigin ? 'Nothing runs until you continue there. It runs in that chat, on your plan.' : 'Nothing runs until you open Claude. It runs in your own chat, on your plan.'}
+              {copied === 'continue' ? 'Copied. Paste it there and send.' : copied === 'open' ? "Copied; paste it if it isn't filled in." : sameOrigin ? 'Nothing runs until you continue there. It runs in that chat, on your plan.' : 'Nothing runs until you open Claude. It runs in your own chat, on your plan.'}
             </div>
           </div>
         )}
@@ -195,7 +196,7 @@ export function Panel({ ref, open, onClose, note, onNoteClose }: { ref: Ref<Pane
             <button className="btn" onClick={() => { setInput(''); setHeard(false); }}>Cancel</button>
           </div>
         ) : quick ? (
-          <div className="qa-preview">Adds without Claude: <b>{quick.title}</b> · {quick.day === s.today ? 'Today' : fmtDay(quick.day!)} · {fmtDur(quick.est)} · {quick.area}{quick.priority !== 'med' ? ' · ' + quick.priority : ''}{quick.due ? ' · due ' + fmtDay(quick.due) : ''}</div>
+          <div className="qa-preview" aria-live="polite">Adds without Claude: <b>{quick.title}</b> · {quickPreview(quick, s.today).join(' · ')}{quick.link ? <span className="qa-link"> · {quick.link.replace(/^https?:\/\//i, '')}</span> : null}</div>
         ) : null}
         <form className="pill" onSubmit={e => { e.preventDefault(); send(); }}>
           <input ref={inputRef} value={input} onChange={e => { setInput(e.target.value); setHeard(false); }} placeholder={mic.listening ? 'Listening…' : 'Say or type a command'} aria-label="Command" enterKeyHint="send" maxLength={2000} />

@@ -13,9 +13,11 @@ Docket never calls a model. No Anthropic API key, no SDK, no model calls from th
 - `server/src/db.ts` schema v1, `MIGRATIONS`, `SCHEMA_VERSION`, re-entrant `tx()` (savepoints).
 - `server/src/store.ts` all behaviour: tasks, steps, moves, requests, the budget guard, usage and calibration (`CALL_WEIGHTS`), overview, state. `DocketError` messages are safe to show.
 - `server/src/schemas.ts` zod schemas shared by MCP and REST: enums with aliases plus `norm()`, real dates, `CAPS` length limits.
+- `server/src/quick.ts` the quick-add parser (`parseQuickAdd`, `askClaude`) behind `POST /api/quick` and the composer's `+` line. `web/src/quick.ts` is a copy of it (only `isIsoDay` becomes `isDay`); both replay `shared/quick-cases.json` in their tests. To change the grammar, change the fixture and both parsers together.
+- `server/src/repeat.ts` recurring tasks: `parseRepeat` (human or canonical to canonical), `describeRepeat`, `nextOccurrence`. `web/src/repeat.ts` has the same `describeRepeat` text plus the edit-form helpers; keep the wording identical.
 - `server/src/tools.ts` the 25 MCP tools and the server `INSTRUCTIONS`. `http.ts` REST, `/mcp`, `/healthz`, static files. `backup.ts` snapshots, prune, export, restore. `dates.ts` local-day helpers. `stdio.ts` stdio MCP.
 - `server/test/*.test.ts` node:test via tsx. `helpers.ts` sets `TZ=Asia/Kolkata` and gives a store on `:memory:` with a movable clock (Thu 1 Oct 2026 10:00).
-- `web/src` the PWA: `api.ts` (fetch, SSE, token), `types.ts` (must match `GET /api/state`), `prompts.ts` (request texts and priorities), `screens/`.
+- `web/src` the PWA: `api.ts` (fetch, SSE, token), `types.ts` (must match `GET /api/state`), `prompts.ts` (request texts and priorities), `quick.ts`, `repeat.ts`, `screens/`.
 - `claude-project-instructions.md` the Project text: tone, cadence, defaults. The server `INSTRUCTIONS` stay mechanics only.
 - `docs/contract.md` the reference (data model, guard, tools, overview, REST, state). `docs/runbook.md` restore drill, token rotation, logs, moving hosts. `scripts/statusline-docket.sh` usage sync from Claude Code.
 - Repo root: `render.yaml` and `.github/workflows/docket-backup.yml` belong to Docket. `solver.py`, `board.json` and `enable1.txt` are an unrelated Scrabble solver; leave them alone.
@@ -70,4 +72,5 @@ Keep `npm test`, `npm run typecheck` and `npm run build` green before handing wo
 - Usage: `at_reserve` from the reported figure only; `near_reserve` from the estimate. The period comes from the status-line `resets_at` when known, otherwise `settings.reset`.
 - Guard: below-high work at the reserve is held via `hold_request` or at queue and pickup time; "Run anyway" and "Queue all" set `override`.
 - 25 tools: `get_overview`, `list_tasks`, `add_task`, `add_tasks`, `update_task`, `update_tasks`, `complete_task`, `delete_task`, `set_steps`, `add_steps`, `set_step`, `propose_moves`, `resolve_moves`, `attach_draft`, `attach_result`, `get_usage`, `set_usage`, `set_settings`, `get_pending_requests`, `complete_request`, `hold_request`, `save_review`, `set_week_plan`, `record_emails`, `suggest_tasks`.
-- REST under `/api` with a Bearer token; `?token=` only on `/api/events` and `/mcp`.
+- REST under `/api` with a Bearer token; `?token=` only on `/api/events` and `/mcp`. `POST /api/quick` and `GET /api/quick/ping` also take the capture token (`DOCKET_CAPTURE_TOKEN`), header or `?token=`; it works nowhere else.
+- Schema v4: `at` (HH:MM), `repeat` (canonical: `daily`, `weekdays`, `weekly:Mon,Thu`, `every:N:days|weeks|months`, `monthly:D`), `repeat_from`, `series_id`. Completing a recurring task creates the next instance in the same transaction and returns `next: { id, day }`; the next day is never before today.

@@ -14,6 +14,8 @@ import { issuesText, norm } from './schemas.js';
 export interface HttpOptions {
   /** Shared secret for the API and remote MCP. Empty disables auth (local use only). */
   token?: string;
+  /** A second secret that can only capture (POST /api/quick, GET /api/quick/ping), for Apple Shortcuts. */
+  captureToken?: string;
   /** Directory with the built web app. */
   webDir?: string;
   /** Where snapshots are kept; enables the pre-reset snapshot. */
@@ -47,6 +49,18 @@ export function createApp(store: Store, opts: HttpOptions = {}) {
     const header = req.get('authorization')?.replace(/^Bearer\s+/i, '') ?? '';
     const given = header || (allowUrl ? String(req.query.token ?? '') || String(req.params.token ?? '') : '');
     if (given && safeEqual(given, opts.token)) return next();
+    res.status(401).json({ error: 'Unauthorized' });
+  };
+
+  // Capture from anywhere: the main token, or the capture token, which works on these routes only
+  // (a leaked one can add tasks and nothing else). Some share flows can't set headers, so the
+  // capture token may also come as ?token=; the main token stays in the header.
+  const quickAuth = (req: Request, res: Response, next: NextFunction) => {
+    if (!opts.token) return next();
+    const header = req.get('authorization')?.replace(/^Bearer\s+/i, '') ?? '';
+    const query = String(req.query.token ?? '');
+    if (header && safeEqual(header, opts.token)) return next();
+    if (opts.captureToken && [header, query].some(g => g && safeEqual(g, opts.captureToken!))) return next();
     res.status(401).json({ error: 'Unauthorized' });
   };
 
@@ -186,6 +200,9 @@ export function createApp(store: Store, opts: HttpOptions = {}) {
   });
 
   api.use((_req, res) => { res.status(404).json({ error: 'Not found' }); });
+  // Registered before the API router, whose auth takes the main token only.
+  app.post('/api/quick', quickAuth, json, h(S.Quick, (_req, b) => store.quickAdd(b)));
+  app.get('/api/quick/ping', quickAuth, h(() => ({ ok: true, today: store.today() })));
   app.use('/api', api);
 
   // ---------- web app ----------

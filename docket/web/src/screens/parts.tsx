@@ -1,10 +1,11 @@
 // Small pieces shared by several screens: the edit form, the add row, task rows, search, toasts.
-import { useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { flushSync } from 'react-dom';
 import { AREA, AREAS, isStandalone, lastArea, search, useDocket, type ToastAction } from '../ctx';
-import { addDays, fmtDay, fmtDur, nextMonday, plural } from '../format';
+import { DOW, addDays, dt, fmtDay, fmtDur, nextMonday, plural } from '../format';
 import { SearchIcon } from '../icons';
 import { ORIGIN_LABEL, claudeLink, claudePrompt, continueLink } from '../prompts';
+import { WEEK_ORDER, defaultRule, describeRepeat, formatRule, parseRule, shortRepeat, type RepeatRule, type RepeatUnit } from '../repeat';
 import type { Area, OriginKind, PendingRequest, Task, TaskPatch } from '../types';
 
 // "Set this week's plan" on Today opens Week with the plan field focused.
@@ -52,7 +53,7 @@ export function ToastView({ t, where, onClose }: { t: Toast; where: 'wide' | 'ph
     <div className={(where === 'sheet' ? 'sheet-note' : 'toast' + (where === 'wide' ? ' wide' : '')) + (t.kind === 'error' ? ' error' : '')} role={t.kind === 'error' ? 'alert' : 'status'}>
       {t.kind === 'error' && <span className="dot" />}
       <span className="msg">{t.msg}</span>
-      {cont && continueLink(cont.origin) ? <ContinueLink reqs={[cont]} className="btn slim toast-act claude" onCopied={() => notify('Copied; paste it there.')} />
+      {cont && continueLink(cont.origin) ? <ContinueLink reqs={[cont]} className="btn slim toast-act claude" onCopied={() => notify('Copied. Paste it there and send.')} />
         : a === 'open-claude' || (a && typeof a === 'object' && 'continue' in a) ? (s.requests.length > 0 && <OpenClaude className="btn slim toast-act" />)
         : a ? <button className="btn slim toast-act" onClick={() => { onClose(); a.run(); }}>{a.label}</button> : null}
       <button className="x" aria-label="Dismiss" onClick={onClose}>×</button>
@@ -83,14 +84,46 @@ export function DayPicker({ value, onChange, min }: { value: string; onChange: (
 
 const EST = [15, 30, 60, 90];
 
+type RepeatKind = RepeatRule['kind'] | '' | 'other';
+const REPEAT_KINDS: [RepeatKind, string][] = [['', 'None'], ['daily', 'Daily'], ['weekdays', 'Weekdays'], ['weekly', 'Weekly on…'], ['monthly', 'Monthly on day…'], ['every', 'Every N days, weeks or months']];
+
+/** The form's repeat fields as a canonical rule: null for none, undefined to keep one this app can't edit, or an error. */
+function ruleOf(f: { rk: RepeatKind; days: number[]; n: string; unit: RepeatUnit; date: string }): string | null | undefined | { error: string } {
+  switch (f.rk) {
+    case '': return null;
+    case 'other': return undefined;
+    case 'weekly': return f.days.length ? formatRule({ kind: 'weekly', days: f.days }) : { error: 'Pick at least one day for the repeat.' };
+    case 'monthly': { const d = Math.round(Number(f.date)); return d >= 1 && d <= 31 ? 'monthly:' + d : { error: 'The day of the month is 1 to 31.' }; }
+    case 'every': { const n = Math.round(Number(f.n)); return n >= 1 && n <= 365 ? `every:${n}:${f.unit}` : { error: 'Repeat every 1 to 365 days, weeks or months.' }; }
+    default: return f.rk;
+  }
+}
+
+const repeatHint = (rule: ReturnType<typeof ruleOf>, from: boolean) =>
+  rule === undefined ? 'Set by Claude or a newer Docket; leave it, or pick another.' : !rule || typeof rule === 'object' ? '' :
+  describeRepeat(rule) + '. Completing it adds the next one' + (from ? ', counted from the day you finish it.' : ', on the next day the rule gives.');
+
 /** The inline edit form for a task. Saves only the fields that changed, in one PATCH. */
-export function TaskEdit({ x, onClose, onDelete }: { x: Task; onClose: () => void; onDelete?: () => void }) {
+export function TaskEdit({ x, onClose, onDelete, focus }: { x: Task; onClose: () => void; onDelete?: () => void; focus?: 'origin' }) {
   const { s, patchTask, notify } = useDocket();
-  const [f, setF] = useState(() => ({
-    title: x.title, est: String(x.est), day: x.day, due: x.due ?? '', priority: x.priority, area: x.area, energy: x.energy,
-    project: x.project ?? '', notes: x.notes ?? '', link: x.link ?? '',
-    origin_kind: (x.origin_kind ?? '') as OriginKind | '', origin_title: x.origin_title ?? '', origin_url: x.origin_url ?? '',
-  }));
+  const [f, setF] = useState(() => {
+    const r = parseRule(x.repeat);
+    const w = r?.kind === 'weekly' ? r : defaultRule('weekly', x.day), e = r?.kind === 'every' ? r : defaultRule('every', x.day), m = r?.kind === 'monthly' ? r : defaultRule('monthly', x.day);
+    return {
+      title: x.title, est: String(x.est), day: x.day, due: x.due ?? '', at: x.at ?? '', priority: x.priority, area: x.area, energy: x.energy,
+      project: x.project ?? '', notes: x.notes ?? '', link: x.link ?? '',
+      origin_kind: (x.origin_kind ?? '') as OriginKind | '', origin_title: x.origin_title ?? '', origin_url: x.origin_url ?? '',
+      rk: (r ? r.kind : x.repeat ? 'other' : '') as RepeatKind,
+      days: w.kind === 'weekly' ? w.days : [], n: String(e.kind === 'every' ? e.n : 2), unit: (e.kind === 'every' ? e.unit : 'weeks') as RepeatUnit,
+      date: String(m.kind === 'monthly' ? m.date : dt(x.day).getDate()), from: x.repeat_from === 'done',
+    };
+  });
+  const originRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (focus !== 'origin' || !originRef.current) return;
+    originRef.current.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    originRef.current.querySelector('select')?.focus({ preventScroll: true });
+  }, [focus]);
   const [busy, setBusy] = useState(false);
   const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF(p => ({ ...p, [k]: v }));
   const projects = useMemo(() => [...new Set(s.tasks.map(t => t.project).filter((p): p is string => !!p))].sort(), [s.tasks]);
@@ -104,6 +137,13 @@ export function TaskEdit({ x, onClose, onDelete }: { x: Task; onClose: () => voi
     if (est !== x.est) p.est = est;
     if (f.day && f.day !== x.day) p.day = f.day;
     if ((f.due || null) !== x.due) p.due = f.due || null;
+    const at = f.at.slice(0, 5) || null;
+    if (at !== x.at) p.at = at;
+    const rule = ruleOf(f);
+    if (rule && typeof rule === 'object') return notify(rule.error, { kind: 'error' });
+    if (rule !== undefined && rule !== x.repeat) p.repeat = rule;
+    const from = f.from ? 'done' : 'planned';
+    if (f.rk && from !== x.repeat_from) p.repeat_from = from;
     if (f.priority !== x.priority) p.priority = f.priority;
     if (f.area !== x.area) p.area = f.area;
     if (f.energy !== x.energy) p.energy = f.energy;
@@ -142,10 +182,45 @@ export function TaskEdit({ x, onClose, onDelete }: { x: Task; onClose: () => voi
         </div>
       </div>
       <div className="f"><span>Day</span><DayPicker value={f.day} onChange={v => set('day', v)} /></div>
+      <div className="f"><span>Time</span>
+        <div className="row-gap" style={{ alignItems: 'center' }}>
+          <input type="time" aria-label="Time of day" value={f.at} onChange={e => set('at', e.target.value)} />
+          {f.at ? <button type="button" className="btn slim" onClick={() => set('at', '')}>Clear</button> : <span className="unit">Any time</span>}
+        </div>
+      </div>
       <div className="f"><span>Due</span>
         <div className="row-gap" style={{ alignItems: 'center' }}>
           <input type="date" aria-label="Due date" value={f.due} onChange={e => set('due', e.target.value)} />
           {f.due && <button type="button" className="btn slim" onClick={() => set('due', '')}>Clear</button>}
+        </div>
+      </div>
+      <div className="f top"><span>Repeat</span>
+        <div className="repeat-edit">
+          <div className="row-gap">
+            <select aria-label="Repeat" value={f.rk} onChange={e => set('rk', e.target.value as RepeatKind)}>
+              {REPEAT_KINDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+              {f.rk === 'other' && <option value="other">{x.repeat}</option>}
+            </select>
+            {f.rk === 'monthly' && <input className="num" type="number" inputMode="numeric" min={1} max={31} aria-label="Day of the month" value={f.date} onChange={e => set('date', e.target.value)} />}
+            {f.rk === 'every' && <>
+              <input className="num" type="number" inputMode="numeric" min={1} max={365} aria-label="Every how many" value={f.n} onChange={e => set('n', e.target.value)} />
+              <select aria-label="Unit" value={f.unit} onChange={e => set('unit', e.target.value as RepeatUnit)}>
+                <option value="days">days</option><option value="weeks">weeks</option><option value="months">months</option>
+              </select>
+            </>}
+          </div>
+          {f.rk === 'weekly' && (
+            <div className="seg days" role="group" aria-label="Repeat on">
+              {WEEK_ORDER.map(d => {
+                const on = f.days.includes(d);
+                return <button key={d} type="button" className={on ? 'on' : ''} aria-pressed={on} onClick={() => set('days', on ? f.days.filter(z => z !== d) : [...f.days, d])}>{DOW[d]}</button>;
+              })}
+            </div>
+          )}
+          {f.rk && f.rk !== 'other' && (
+            <label className="check-line"><input type="checkbox" checked={f.from} onChange={e => set('from', e.target.checked)} />From completion</label>
+          )}
+          {f.rk && <div className="hint" style={{ marginTop: 0 }}>{repeatHint(ruleOf(f), f.from)}</div>}
         </div>
       </div>
       <div className="f"><span>Priority</span><Seg label="Priority" value={f.priority} options={[['high', 'High'], ['med', 'Med'], ['low', 'Low']]} onChange={v => set('priority', v)} /></div>
@@ -155,7 +230,7 @@ export function TaskEdit({ x, onClose, onDelete }: { x: Task; onClose: () => voi
       <datalist id={listId}>{projects.map(p => <option key={p} value={p} />)}</datalist>
       <label className="f top"><span>Notes</span><textarea rows={3} value={f.notes} onChange={e => set('notes', e.target.value)} maxLength={4000} placeholder="Context, links, what done means" /></label>
       <label className="f"><span>Link</span><input type="text" inputMode="url" value={f.link} onChange={e => set('link', e.target.value)} maxLength={500} placeholder="https://" /></label>
-      <div className="f top"><span>Origin</span>
+      <div className="f top" ref={originRef}><span>Origin</span>
         <div className="origin-edit">
           <div className="row-gap">
             <select aria-label="Where it came from" value={f.origin_kind} onChange={e => set('origin_kind', e.target.value as OriginKind | '')}>
@@ -239,7 +314,7 @@ export function TaskRow({ x, showDay }: { x: Task; showDay?: boolean }) {
         <button className="check" aria-label={(x.done ? 'Reopen ' : 'Complete ') + x.title} style={{ borderColor: A.c, background: x.done ? A.c : 'transparent' }} onClick={() => patchTask(x, { done: !x.done })} />
         <button className="t row-btn" aria-expanded={open} onClick={() => setOpen(!open)}>{x.title}</button>
         {withClaude && <span className="tag" style={{ background: 'var(--accent-soft)', color: 'var(--accent-ink)', fontSize: 11 }}>With Claude</span>}
-        <span className="m">{showDay ? fmtDay(x.day) + ' · ' : ''}{x.area} · {fmtDur(x.est)}</span>
+        <span className="m">{showDay ? fmtDay(x.day) + ' · ' : ''}{x.at ? x.at + ' · ' : ''}{x.area} · {fmtDur(x.est)}{x.repeat && shortRepeat(x.repeat) ? ' · ' + shortRepeat(x.repeat) : ''}</span>
       </div>
       {open && <TaskEdit x={x} onClose={() => setOpen(false)} onDelete={() => { setOpen(false); del(x); }} />}
     </div>

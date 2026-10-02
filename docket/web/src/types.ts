@@ -15,15 +15,20 @@ export interface Task {
   draft: string | null; gmail_draft_id: string | null; notes: string | null; link: string | null;
   result: string | null; result_url: string | null; result_at: string | null;
   origin_kind: OriginKind | null; origin_title: string | null; origin_url: string | null;
+  /** Schema v4 (0.4.0): time of day "HH:MM" (24h, local), the repeat rule in canonical form, and its series. */
+  at: string | null; repeat: string | null; repeat_from: 'planned' | 'done'; series_id: string | null;
   steps: Step[]; created_at: string; updated_at: string;
 }
 /** Body of POST /api/tasks. */
 export interface TaskInput {
   title: string; area: Area; project?: string | null; day?: string; due?: string | null;
   est: number; priority: Priority; energy: Energy; notes?: string | null; link?: string | null; origin?: Origin | null;
+  at?: string | null; repeat?: string | null; repeat_from?: 'planned' | 'done';
 }
 /** Body of PATCH /api/tasks/:id. */
 export type TaskPatch = Partial<TaskInput> & { done?: boolean; result?: null };
+/** PATCH /api/tasks/:id answers with the task, plus the next instance when completing a recurring one created it. */
+export type PatchResult = Task & { next?: { id: string; day: string } };
 
 export interface Move { id: string; task_id: string; title: string; from_day: string; to_day: string; reason: string }
 export interface HeldRequest { id: string; label: string; prompt: string; task_id: string | null; priority: Priority; created_at: string; tool?: string | null }
