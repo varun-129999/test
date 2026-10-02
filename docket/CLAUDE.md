@@ -50,7 +50,7 @@ Keep `npm test`, `npm run typecheck` and `npm run build` green before handing wo
 
 ## Deploy and the live service
 
-- Render deploys the branch `claude/build-from-readme-81ah7g`. Pushing to it deploys (when auto-deploy is on). Don't change the branch, and don't commit or push unless asked; an integrator does that.
+- Render deploys the branch `claude/build-from-readme-81ah7g`. A push that touches `docket/` runs `.github/workflows/docket-deploy.yml`, which triggers Render's Deploy Hook (secret `RENDER_DEPLOY_HOOK`) and waits for `/healthz` to report the pushed version; Render's own auto-deploy never fired for this service. Don't change the branch, and don't commit or push unless asked; an integrator does that.
 - The service was created by hand in the Render dashboard; it is not managed by `render.yaml`. Changes to `render.yaml` do not reach it.
 - Live facts: https://docket-t6dw.onrender.com, Render Starter, Docker (`docket/Dockerfile`), disk at `/data` (database `/data/docket.db`, snapshots `/data/backups`), env `TZ=Asia/Kolkata` and `DOCKET_TOKEN`; the Dockerfile sets `DOCKET_DB`, `DOCKET_REQUIRE_DISK=1`, `HOST`, `PORT=8787`.
 - The live token contains `/` and `=`, so the connector URL is the query form `https://docket-t6dw.onrender.com/mcp?token=<percent-encoded token>`; the path form `/mcp/<token>` breaks on `/`. The app link is `https://docket-t6dw.onrender.com/#token=<percent-encoded token>`.

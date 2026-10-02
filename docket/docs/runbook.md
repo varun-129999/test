@@ -199,7 +199,7 @@ Docket needs one container with a persistent disk, HTTPS in front, and the two v
    - **Fly.io**: `docket/fly.toml` is an example config (`TZ=Asia/Kolkata`, `DOCKET_REQUIRE_DISK=1`, a volume at `/data`, region `bom`). Its comments give the steps (`fly volumes create docket_data --size 1`, `fly secrets set DOCKET_TOKEN=$(openssl rand -hex 32)`, `fly deploy`). As written it stops the machine when idle, so hourly snapshots only happen while it runs.
    - **Any Docker host**, from `docket/`: `docker build -t docket .` then `docker run -p 8787:8787 -v docket-data:/data -e DOCKET_TOKEN=… -e TZ=Asia/Kolkata docket`, behind something that provides HTTPS.
 3. **Restore into it**: copy `docket.db` onto the new disk and set `DOCKET_RESTORE_FROM` once, as in the drill (steps 4 to 7).
-4. **Point everything at the new URL**: the claude.ai connector (`/mcp?token=…`), the app link on each device (`/#token=…`), the GitHub secrets `DOCKET_URL` and `DOCKET_TOKEN`, and `~/.claude/docket.env`. "Open Claude at" points at Claude, so it stays as it is. If the URL or the deploy branch changes, update `README.md`, this runbook and `CLAUDE.md`.
+4. **Point everything at the new URL**: the claude.ai connector (`/mcp?token=…`), the app link on each device (`/#token=…`), the GitHub secrets `DOCKET_URL`, `DOCKET_TOKEN` and `RENDER_DEPLOY_HOOK` (a new service has a new hook), and `~/.claude/docket.env`. "Open Claude at" points at Claude, so it stays as it is. If the URL or the deploy branch changes, update `README.md`, this runbook and `CLAUDE.md`.
 5. **Keep the old service for a week**, stopped or untouched, then delete it and its disk.
 
 ## Monday checklist (5 minutes)

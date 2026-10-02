@@ -252,7 +252,7 @@ sqlite3 docket.db "PRAGMA integrity_check; SELECT 'tasks: ' || COUNT(*) FROM tas
 ## Updating Docket
 
 1. Change the code, then from `docket/` run `npm test`, `npm run typecheck` and `npm run build`.
-2. Push to `claude/build-from-readme-81ah7g`. Render builds the Docker image and deploys it (if auto-deploy is on for the service; otherwise start a deploy in the Render dashboard). Do not change the branch Render deploys from.
+2. Push to `claude/build-from-readme-81ah7g`. The GitHub Action `docket-deploy.yml` asks Render to deploy through its Deploy Hook and waits until `/healthz` reports the new version (green in the Actions tab means it is live). It needs the repository secrets `RENDER_DEPLOY_HOOK` (Render: the service's Settings, Deploy Hook, Create) and `DOCKET_URL`. Without the hook, start a deploy in the Render dashboard (Manual Deploy). Do not change the branch Render deploys from.
 3. Expect a short gap while the old instance stops and the new one starts; a service with a disk runs one instance at a time.
 4. The data survives: it lives on the `/data` disk, not in the image. On boot, Docket applies any new schema migrations (they only add columns and tables) after taking a `pre-migration` snapshot.
 5. Check `https://docket-t6dw.onrender.com/healthz` shows the new version (Claude's `get_usage` also returns `docket_version`), and look for `opened existing database (N tasks, …)` in the Render logs.

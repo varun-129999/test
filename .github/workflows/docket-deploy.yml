@@ -1,0 +1,41 @@
+# Deploys Docket on every push to its branch that touches docket/, through a Render Deploy Hook,
+# then waits until the live /healthz reports the pushed version. Needs two repository secrets:
+# RENDER_DEPLOY_HOOK (Render: the service's Settings, Deploy Hook) and DOCKET_URL
+# (https://docket-xxxx.onrender.com). Run it by hand from the Actions tab to redeploy the branch.
+name: Docket deploy
+on:
+  push:
+    branches: [claude/build-from-readme-81ah7g]
+    paths: ['docket/**', '.github/workflows/docket-deploy.yml']
+  workflow_dispatch:
+concurrency:
+  group: docket-deploy
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ask Render to deploy
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: |
+          set -euo pipefail
+          test -n "$HOOK" || { echo "Set the RENDER_DEPLOY_HOOK secret (Render: service Settings, Deploy Hook)"; exit 1; }
+          curl --fail --silent --show-error --max-time 30 -X POST "$HOOK" -o /dev/null
+          echo "Deploy requested for version $(node -p 'require("./docket/package.json").version')"
+      - name: Wait for the new version to answer
+        env:
+          DOCKET_URL: ${{ secrets.DOCKET_URL }}
+        run: |
+          set -euo pipefail
+          want=$(node -p 'require("./docket/package.json").version')
+          test -n "$DOCKET_URL" || { echo "No DOCKET_URL secret; not waiting. Check $want on /healthz yourself."; exit 0; }
+          for i in $(seq 1 60); do
+            got=$(curl --silent --max-time 15 "$DOCKET_URL/healthz" | node -pe 'try { JSON.parse(require("fs").readFileSync(0, "utf8")).version } catch { "" }' || true)
+            echo "$(date -u +%H:%M:%S) live version: ${got:-none}"
+            [ "$got" = "$want" ] && { echo "Docket $want is live"; exit 0; }
+            sleep 15
+          done
+          echo "Docket $want did not come up within 15 minutes; check the Render logs"; exit 1
