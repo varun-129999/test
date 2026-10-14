@@ -1,7 +1,7 @@
 // The prompts the app's "Ask Claude" buttons queue. Claude runs them in the owner's own
 // Claude chat (on their plan), never from this app. Prompts name tasks by id only: titles are
 // data Claude reads from Docket, not text the owner should be sending as instructions.
-import { addDays, dt, weekStart } from './format';
+import { addDays, dt, fmtDay, weekStart } from './format';
 import type { Origin, OriginKind, PendingRequest, Priority, Task } from './types';
 
 /** What the UI queues: the prompt, a short label for lists, and the priority the budget guard sees. */
@@ -41,6 +41,12 @@ export function continueLink(o: Origin | null | undefined): { url: string; label
   const name = clip((o.title && oneLine(o.title)) || (kind === 'chat' ? 'the chat' : kind && ORIGIN_LABEL[kind]) || 'the original chat', 40);
   return { url, label: 'Continue in ' + name, name };
 }
+
+/**
+ * "Docket task 1xhzwq ("Call photographer", Fri 3 Oct): " — copied when the owner goes back to a
+ * task's chat or session, so one paste names the task and they only type what they want.
+ */
+export const taskRef = (t: Pick<Task, 'id' | 'title' | 'day'>) => `Docket task ${t.id} ("${clip(oneLine(t.title), 80)}", ${fmtDay(t.day)}): `;
 
 /** The owner's words in a Give to Claude prompt, first 40 characters, for the queue card and the toast. */
 export function instructionOf(prompt: string | null | undefined): string {

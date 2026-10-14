@@ -5,7 +5,7 @@ import { AREA, AREAS, isStandalone, lastArea, search, useDocket, type ToastActio
 import { DOW, addDays, dt, fmtDay, fmtDur, nextMonday, plural } from '../format';
 import { SearchIcon } from '../icons';
 import { appLink, linkPref, openInApp } from '../applink';
-import { ORIGIN_LABEL, claudeLink, claudePrompt, continueLink, originOf } from '../prompts';
+import { ORIGIN_LABEL, claudeLink, claudePrompt, continueLink, originOf, taskRef } from '../prompts';
 import { WEEK_ORDER, defaultRule, describeRepeat, formatRule, parseRule, shortRepeat, type RepeatRule, type RepeatUnit } from '../repeat';
 import type { Area, OriginKind, PendingRequest, Task, TaskPatch } from '../types';
 import { undoDelete } from '../undo';
@@ -34,9 +34,22 @@ export function useOpenClaude() {
 }
 
 /** An outbound link: a claude.ai one opens in the app when the device is set to it, anything else in a new tab. */
-export function OutLink({ href, className = 'link-out', children }: { href: string; className?: string; children?: React.ReactNode }) {
+export function OutLink({ href, className = 'link-out', copy, then, children }: { href: string; className?: string; copy?: string; then?: string; children?: React.ReactNode }) {
   const open = useOpenClaude();
-  return <a className={className} href={href} target="_blank" rel="noreferrer" onClick={e => open(e, href, appLink(href))}>{children ?? href.replace(/^https?:\/\//i, '')}</a>;
+  const { notify } = useDocket();
+  return (
+    <a className={className} href={href} target="_blank" rel="noreferrer" onClick={e => {
+      if (copy) copyText(copy);
+      if (!open(e, href, appLink(href), then) && then) notify(then);
+    }}>{children ?? href.replace(/^https?:\/\//i, '')}</a>
+  );
+}
+
+/** "Continue in <title>" for a task: opens its chat or session and copies the task line, so one paste names the task. */
+export function ContinueTask({ x, className, label }: { x: Task; className: string; label?: string }) {
+  const c = continueLink(originOf(x));
+  if (!c) return null;
+  return <OutLink href={c.url} className={className} copy={taskRef(x)} then={`Opening ${c.name}. Paste to name the task, then say what you want.`}>{label ?? c.label}</OutLink>;
 }
 
 const copyText = (text: string, done?: () => void) => { try { navigator.clipboard?.writeText(text).then(() => done?.(), () => { /* denied */ }); } catch { /* no clipboard */ } };
@@ -274,7 +287,7 @@ export function TaskEdit({ x, onClose, onDelete, focus }: { x: Task; onClose: ()
             <input className="grow" type="text" inputMode="url" aria-label="Chat or session link" value={f.origin_url} onChange={e => set('origin_url', e.target.value)} maxLength={500} placeholder="https://claude.ai/…" />
             <button type="button" className="btn slim" onClick={pasteOrigin}>Paste</button>
           </div>
-          {editCont && <OutLink href={editCont.url} className="btn slim origin-go">{editCont.label}</OutLink>}
+          {editCont && <OutLink href={editCont.url} className="btn slim origin-go" copy={taskRef(x)} then={`Opening ${editCont.name}. Paste to name the task, then say what you want.`}>{editCont.label}</OutLink>}
         </div>
       </div>
       <div className="row-gap edit-actions">
@@ -353,7 +366,7 @@ export function TaskRow({ x, showDay }: { x: Task; showDay?: boolean }) {
         <button className="t row-btn" aria-expanded={open} onClick={() => setOpen(!open)}>{x.title}</button>
         {withClaude && <span className="tag" style={{ background: 'var(--accent-soft)', color: 'var(--accent-ink)', fontSize: 11 }}>With Claude</span>}
         <span className="m">{showDay ? fmtDay(x.day) + ' · ' : ''}{x.at ? x.at + ' · ' : ''}{x.area} · {fmtDur(x.est)}{x.repeat && shortRepeat(x.repeat) ? ' · ' + shortRepeat(x.repeat) : ''}</span>
-        {rowOrigin && <OutLink href={rowOrigin.url} className="origin" >{rowOrigin.label}</OutLink>}
+        {rowOrigin && <ContinueTask x={x} className="origin" />}
       </div>
       {open && <TaskEdit x={x} onClose={() => setOpen(false)} onDelete={() => { setOpen(false); del(x); }} />}
     </div>

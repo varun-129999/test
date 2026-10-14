@@ -1,14 +1,13 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { AREA, AREAS, derive, finished, safeUrl, useDocket } from '../ctx';
 import { DOWL, MONL, addDays, ago, dt, fmtDay, fmtDur, isDay, plural, shortDay } from '../format';
-import { appLink } from '../applink';
 import { Q, continueLink, originOf, originText } from '../prompts';
 import { describeRepeat, shortRepeat } from '../repeat';
 import type { Task } from '../types';
 import { onKey } from '../keys';
 import { undoDay } from '../undo';
 import { ringBg } from './Sidebar';
-import { AddTaskRow, DayPicker, OutLink, SearchResults, TaskEdit, focusPlanNext, useDelete, useFind, useOpenClaude } from './parts';
+import { AddTaskRow, ContinueTask, DayPicker, OutLink, SearchResults, TaskEdit, focusPlanNext, useDelete, useFind } from './parts';
 
 export function Legend({ children }: { children?: React.ReactNode }) {
   return (
@@ -182,7 +181,6 @@ function DoneRow({ x }: { x: Task }) {
 
 function Block({ x, over, open, onExpand, onClose }: { x: Task; over: boolean; open: boolean; onExpand: () => void; onClose: () => void }) {
   const { s, act, ask, patchTask, optimistic, notify, undo, now } = useDocket();
-  const openClaude = useOpenClaude();
   const del = useDelete();
   const [copied, setCopied] = useState('');
   const [mode, setMode] = useState<'' | 'edit' | 'give'>('');
@@ -253,7 +251,7 @@ function Block({ x, over, open, onExpand, onClose }: { x: Task; over: boolean; o
           <div className="block-meta">
             {meta && <span className="meta">{meta}</span>}
             {from && (fromUrl
-              ? <a className="origin" href={fromUrl} target="_blank" rel="noreferrer" title={fromUrl} onClick={e => { e.stopPropagation(); openClaude(e, fromUrl, appLink(fromUrl)); }}>{from}</a>
+              ? <span onClick={e => e.stopPropagation()}><ContinueTask x={x} className="origin" label={from} /></span>
               : <span className="origin">{from}</span>)}
             {tags.map(tg => <span key={tg.t} className="tag" title={tg.title} style={{ background: tg.bg, color: tg.fg }}>{tg.t}</span>)}
           </div>
